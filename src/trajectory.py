@@ -2,23 +2,12 @@
 
 import numpy as np
 import random
-from _functools import partial
-
-
-class Interval:
-    '''
-    Interval defined as half-open interval [start,end)
-    '''
-    def __init__(self,start,end):
-        self.start = start
-        self.end = end
-
-    def __contains__(self,item):
-        return self.start <= item and item < self.end
+#from interval import Interval
+from interval import Interval
 
 class Trajectory:
     '''
-    Continuous trajectory as a numpy array, also stores the states A and B as intervals
+    Continuous trajectory as a numpy array, 
     Right now is only designed for trajectories projected in one dimension
     '''
     def __init__(self, trajectory):
@@ -28,6 +17,13 @@ class Trajectory:
         #mean first passage times calculation
         if (stateA is None) or (stateB is None):
             raise Exception('The final and initial states have to be defined to compute the MFPT')
+        
+        if self.__class__.__name__ == 'Trajectory':
+            stateA = Interval(stateA)
+            stateB = Interval(stateB)
+        else:
+            #Other wise stateA and B are consider sets
+            pass
         
         previous_color = "Unknown"
         state = "Unknown"
@@ -79,12 +75,12 @@ class Trajectory:
             
     #def populations(self,binbounds):
         
-    def transition_matrix(self, number_of_states, map_function = None):
-        if (map_function is None) or (number_of_states is None):
+    def count_matrix(self, n_states, map_function = None):
+        if (map_function is None) or (n_states is None):
             raise ValueError('The number of states and a map function have to be given as argument')
 
         previous_state = "Unknown" #Previous state is unknown
-        count_matrix = np.zeros((number_of_states, number_of_states))
+        count_matrix = np.zeros((n_states, n_states))
         
         for snapshot in self.trajectory:
             current_state = map_function(snapshot)
@@ -92,20 +88,26 @@ class Trajectory:
                 count_matrix[previous_state, current_state] += 1.0
             previous_state = current_state
         
-        # Transforming the count matrix to a transition matrix
-        for i in range(number_of_states):
-            row_sum = sum(count_matrix[i,:])
-            if row_sum != 0.0:
-                count_matrix[i,:] = count_matrix[i,:]/row_sum
-            
         return count_matrix
-            
+    
+    def _mle_transition_matrix(self, n_states, map_function = None):
+        
+        transition_matrix = self.count_matrix(n_states, map_function)
+        
+        # Transforming the count matrix to a transition matrix
+        for i in range(n_states):
+            row_sum = sum(transition_matrix[i,:])
+            if row_sum != 0.0:
+                transition_matrix[i,:] = transition_matrix[i,:]/row_sum
+                
+        return transition_matrix
+        
 class DiscreteTrajectory(Trajectory):
     '''
     Discrete trajectory
     '''
     @classmethod
-    def from_continuous(cls, traj, map_function = None):
+    def from_continuous_traj(cls, traj, map_function = None):
         if map_function is None:
             raise ValueError('A map function has to be given as argument')
         
@@ -113,7 +115,7 @@ class DiscreteTrajectory(Trajectory):
         
         if isinstance(traj, Trajectory):   
             for snapshot in traj.trajectory:
-                 discrete_traj = np.append(discrete_traj, [map_function(snapshot)], axis = 0)  
+                discrete_traj = np.append(discrete_traj, [map_function(snapshot)], axis = 0)  
         else:
             for snapshot in traj:
                 discrete_traj = np.append(discrete_traj, [map_function(snapshot)], axis = 0)
@@ -131,7 +133,7 @@ class DiscreteTrajectory(Trajectory):
         if not isinstance(transition_matrix, np.ndarray):
             transition_matrix = np.array(transition_matrix)
         
-        number_of_states = len(transition_matrix)
+        n_states = len(transition_matrix)
         assert(len(transition_matrix) == len(transition_matrix[0]))
         
         current_state = initial_state
@@ -141,7 +143,7 @@ class DiscreteTrajectory(Trajectory):
             rand_num = random.random()
             partial_sum = 0.0
             
-            for j in range(number_of_states):
+            for j in range(n_states):
                 if partial_sum <= rand_num < ( partial_sum + transition_matrix[current_state,j] ):
                     current_state = j
                     break
@@ -154,12 +156,14 @@ class DiscreteTrajectory(Trajectory):
 
 
 '''
+------------------------------------------------------
 EVERYTHING FROM HERE IS JUST TO TEST THE CODE ABOVE
+--------------------------------------------------------
 '''
 #just to test the code
 def mc_simulation(numsteps):
     x = 5
-    I = Interval(0,100)
+    I = Interval([0,100])
     mc_traj = []
     
     for i in range(numsteps):
@@ -181,19 +185,19 @@ def main():
     test_trajectory = mc_simulation(10000)
     #print(test_trajectory)
     
-    stateA = Interval(0,10)
-    stateB = Interval(90,100)
+    stateA = [0,10]
+    stateB = [90,100]
     
     t = Trajectory(test_trajectory)
     
-    T_matrix = t.transition_matrix(10,simple_mapping2)
+    T_matrix = t._mle_transition_matrix(10,simple_mapping2)
     #print(T_matrix)
 
     #histogram,edges = np.histogram(test_trajectory, [i*5 for i in range(20)], density = True)
     print('\nmfpts from the continuous simulation')
     print(t.mfpts(stateA, stateB))
      
-    d = DiscreteTrajectory.from_continuous(t, simple_mapping2)
+    d = DiscreteTrajectory.from_continuous_traj(t, simple_mapping2)
     
     d_from_T = DiscreteTrajectory.from_transition_matrix(T_matrix, 10000)
     

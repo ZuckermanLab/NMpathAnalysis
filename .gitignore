@@ -1,2 +1,4 @@
 data
 src_old
+src/.metadata
+.pydevproject
