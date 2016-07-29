@@ -2,16 +2,22 @@
 
 import numpy as np
 import random
-#from interval import Interval
-from interval import Interval
+
+from NMpathAnalysis.nmtools.interval import Interval
 
 class Trajectory:
     '''
-    Continuous trajectory as a numpy array, 
+    Continuous sequence of the selected collective variables
     Right now is only designed for trajectories projected in one dimension
     '''
-    def __init__(self, trajectory):
-        self.trajectory = np.array(trajectory)
+    def __init__(self, sequence):
+        '''
+        A sequence of trajectories is expected
+        '''
+        self.sequence = np.array(sequence) # a list of arrays is saved
+    
+    def __len__(self):
+        return len(self.sequence)
     
     def mfpts(self, stateA = None, stateB = None): 
         #mean first passage times calculation
@@ -31,7 +37,7 @@ class Trajectory:
         passageTimeBA=[]
         fpt_counter = 0  # first passage time counter
         
-        for snapshot in self.trajectory:
+        for snapshot in self.sequence:
             #state and color determination
             if snapshot in stateA:
                 state = "A"; color = "A"
@@ -71,8 +77,10 @@ class Trajectory:
             mfptBA = 'NaN'
             std_err_mfptBA = 'NaN'
         
-        return mfptAB, std_err_mfptAB, mfptBA, std_err_mfptBA
-            
+        kinetics = {'mfptAB': mfptAB, 'std_err_mfptAB': std_err_mfptAB, 'mfptBA': mfptBA, 'std_err_mfptBA': std_err_mfptBA}
+        
+        return kinetics            
+
     #def populations(self,binbounds):
         
     def count_matrix(self, n_states, map_function = None):
@@ -82,7 +90,7 @@ class Trajectory:
         previous_state = "Unknown" #Previous state is unknown
         count_matrix = np.zeros((n_states, n_states))
         
-        for snapshot in self.trajectory:
+        for snapshot in self.sequence:
             current_state = map_function(snapshot)
             if previous_state != "Unknown":
                 count_matrix[previous_state, current_state] += 1.0
@@ -90,9 +98,10 @@ class Trajectory:
         
         return count_matrix
     
-    def _mle_transition_matrix(self, n_states, map_function = None):
+    def _mle_transition_matrix(self, n_states, map_function):
         
-        transition_matrix = self.count_matrix(n_states, map_function)
+        count_matrix = self.count_matrix(n_states, map_function)
+        transition_matrix = count_matrix.copy()
         
         # Transforming the count matrix to a transition matrix
         for i in range(n_states):
@@ -114,7 +123,7 @@ class DiscreteTrajectory(Trajectory):
         discrete_traj = np.array([],dtype=np.int32)
         
         if isinstance(traj, Trajectory):   
-            for snapshot in traj.trajectory:
+            for snapshot in traj.sequence:
                 discrete_traj = np.append(discrete_traj, [map_function(snapshot)], axis = 0)  
         else:
             for snapshot in traj:
@@ -155,6 +164,29 @@ class DiscreteTrajectory(Trajectory):
         return cls(discrete_traj)
 
 
+    def count_matrix(self, n_states):
+
+        count_matrix = np.zeros((n_states, n_states))
+        
+        for i in range(len(self.sequence)-1):
+            count_matrix[self.sequence[i], self.sequence[i+1]] += 1.0
+
+        return count_matrix
+    
+    
+    def _mle_transition_matrix(self, n_states):
+
+        count_matrix = self.count_matrix(n_states)
+
+        transition_matrix = count_matrix.copy()
+        
+        # Transforming the count matrix to a transition matrix
+        for i in range(n_states):
+            row_sum = sum(transition_matrix[i,:])
+            if row_sum != 0.0:
+                transition_matrix[i,:] = transition_matrix[i,:]/row_sum
+                
+        return transition_matrix
 '''
 ------------------------------------------------------
 EVERYTHING FROM HERE IS JUST TO TEST THE CODE ABOVE
@@ -212,6 +244,7 @@ def main():
 
     
 if __name__ == '__main__':
+    from interval import Interval
     main()
         
     
