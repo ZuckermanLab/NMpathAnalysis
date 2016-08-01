@@ -12,4 +12,7 @@ class Interval:
         self.range = range
 
     def __contains__(self,item):
-        return self.range[0] <= item and item < self.range[1]
+        if self.range[0] != self.range[1]:
+            return self.range[0] <= item and item < self.range[1]
+        else:
+            return item == self.range[0]
