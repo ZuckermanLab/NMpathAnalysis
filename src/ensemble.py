@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
 import numpy as np
-import random
 from copy import deepcopy
 import networkx as nx
 
 from NMpathAnalysis.nmtools.interval import Interval
-from NMpathAnalysis.nmtools.functions import check_shape, weighted_choice
+from NMpathAnalysis.nmtools.functions import *
+
 
 class Ensemble:
     '''
@@ -41,7 +41,8 @@ class Ensemble:
         _n_snapshots, _n_variables = check_shape(trajectory)
 
         if self.n_variables == 0: # Empty ensemble
-            self.trajectories = [trajectory] 
+            self.trajectories = [trajectory]
+            self.n_variables = _n_variables
         else:
             if self.n_variables != _n_variables:
                 raise Exception('All the trajectories in the same ensemble must have the same number of variables')
@@ -246,7 +247,30 @@ class DiscreteEnsemble(Ensemble):
                 
         return transition_matrix
 
+
 class DiscretePathEnsemble(DiscreteEnsemble):
+    
+    def __init__(self, trajectory = None, ini_state = None, final_state = None, verbose = False, dtype ='float32'):
+        '''
+        trajectory:      is a single trajectory that can be used to instantiate      
+        '''
+        if trajectory is None:
+            self.trajectories = []
+            self.n_variables = 0
+            if verbose: print('\nEmpty ensemble generated')
+            
+        elif (type(trajectory) == list) and (type(trajectory[0]) == np.ndarray): 
+            # it is actually a list of array
+            self.trajectories = trajectory
+        else:
+            trajectory = np.array(trajectory, dtype = dtype)
+            n_snapshots, n_variables = check_shape(trajectory)
+            self.n_variables = n_variables
+            self.trajectories = [ trajectory ]
+            
+            if verbose:
+                print('\nSingle trajectory was read with shape {}'.format(trajectory.shape) )
+                print('n_snapshots = {}, n_variables = {}'.format(n_snapshots, self.n_variables))
 
     @classmethod
     def from_transition_matrix(cls, transition_matrix, ini_state, final_state, n_paths = 1000, ini_pops = None,  max_iters = 1000000000, dtype = 'int32'):
@@ -265,10 +289,6 @@ class DiscretePathEnsemble(DiscreteEnsemble):
                           a)  None
                               Use a uniform distribution over the states in ini_state
                               
-                          b) 'ss'
-                              Use the steady state solution (first eigenvector) of
-                              the transtion matrix
-                              
                           c) list
                               A list with the explicit values of the populations in ini_state 
                               that should be used to generate the ensemble
@@ -279,14 +299,6 @@ class DiscretePathEnsemble(DiscreteEnsemble):
         elif ini_pops == 'ss':
             raise NotImplementedError('Sorry: not yet implemented')
         
-        
-        cls.transtion_matrix = transition_matrix
-        cls.ini_state = ini_state
-        cls.final_state = final_state
-        cls.ini_pops = ini_pops
-        cls.max_iters = max_iters
-        cls.n_paths = n_paths
-
         n_states = len(transition_matrix)
         assert(n_states == len(transition_matrix[0]))
         
@@ -305,26 +317,49 @@ class DiscretePathEnsemble(DiscreteEnsemble):
                 if (current_state in final_state): break
                 
             path = np.array(path,dtype = dtype)
-            d_trajectories += [path]
+            d_trajectories.append(path)
         
-        cls.trajectories = d_trajectories
-        
-        return cls
+        return cls(d_trajectories, ini_state, final_state)
 
-#     def fundamental_sequences(self, _transition_matrix = None):
-#         
-#         if _transition_matrix is None:
-#             transtion_matrix = self.transition_matrix
-#         
-#         for path in self.trajectories:
+    def fundamental_sequences(self, transition_matrix):
+        '''
+        Divide/classify the path ensemble into fundamental sequences
+        '''
+           
+        if transition_matrix is None:
+            try:
+                transtion_matrix = self.transition_matrix
+            except:
+                raise Exception('Transition matrix is not yet defined')
+        
+        fundamental_seqs = []
+           
+        for path in self.trajectories:
+            cmatrix = connectivity_matrix(path, transition_matrix)
+            path_graph = graph_from_matrix(cmatrix)
+            shortest_path = nx.dijkstra_path(path_graph, path[0], path[-1], 'distance')
+            fundamental_seqs.append(shortest_path)
+        
+        return fundamental_seqs
+
+
+
+
+
+            
+            
             
         
-'''
-------------------------------------------------------
-EVERYTHING FROM HERE IS JUST TO TEST THE CODE ABOVE
---------------------------------------------------------
-'''
+            
+
+
+#------------------------------------------------------
+#EVERYTHING FROM HERE IS JUST TO TEST THE CODE ABOVE
+#--------------------------------------------------------
+#
 #just to test the code
+
+
 def mc_simulation(numsteps):
     x = 5
     I = Interval([0,100])

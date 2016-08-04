@@ -4,6 +4,8 @@ Created on Jul 29, 2016
 '''
 import numpy as np
 from random import random
+import networkx  as nx
+from math import log
 
 def weighted_choice(list, weights = None):
     '''
@@ -48,6 +50,56 @@ def check_shape(trajectory):
         raise Exception('The shape {} of the trajectory/array given is not as expected'.format(shape))
 
     return n_snapshots, n_variables
+
+
+def graph_from_matrix(matrix):
+    '''
+    Builds a directed Graph from a matrix like a transtion matrix
+        
+    '''
+    size = len(matrix)
+    assert(size == len(matrix[0]))
+    matrix = np.array(matrix)
+        
+    G = nx.DiGraph()
+        
+    for node in range(size):
+        G.add_node(node)
+            
+    for i in range(size):
+        for j in range(size):
+            if (i != j) and (matrix[i,j] != 0.0):
+                G.add_edge(i, j, distance = -log(matrix[i,j]) )
+    return G
+       
+
+def connectivity_matrix(path,matrix):
+    '''
+    From a given path and a matrix construct a new matrix we call
+    connectivity matrix whose elements ij are zero if the transition i->j
+    is not observed in the path or (i=j), while keep the rest of the elements in the
+    input matrix
+        
+    This way, from the connectivity matrix we could later create a graph that 
+    represents the path, being the "distance" between nodes equal to -log(Tij)
+        
+    Tij --> i,j element in the transition matrix 
+        
+    path: 1D array of indexes
+        
+    '''
+    matrix = np.array(matrix)
+    path = np.array(path, dtype = 'int32')
+        
+    n_states = len(matrix)
+    assert(n_states == len(matrix[0]))
+        
+    c_matrix = np.zeros((n_states,n_states))
+        
+    for i in range(len(path)-1):
+        c_matrix[path[i],path[i+1]] = matrix[path[i],path[i+1]]
+            
+    return c_matrix
     
 
 # def markov_mfpt_from_fluxes(transition_matrix, ini_state, final_state):
