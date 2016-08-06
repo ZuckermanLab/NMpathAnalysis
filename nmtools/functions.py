@@ -6,6 +6,15 @@ import numpy as np
 from random import random
 import networkx  as nx
 from math import log
+import operator
+
+def reverse_sort_lists(list_1,list_2):
+    '''
+    Reverse sorting two list based on the first one
+    '''
+    list_1_sorted, list_2_sorted = zip(*sorted(zip(list_1, list_2), key=operator.itemgetter(0), reverse=True))
+    return list_1_sorted, list_2_sorted
+    
 
 def weighted_choice(list, weights = None):
     '''

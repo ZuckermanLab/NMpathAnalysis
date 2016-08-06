@@ -7,16 +7,18 @@ import numpy as np
 
 class Interval:
     '''
-    Interval are in general defined as half-open interval [start,end),
+    Intervals are in general defined as half-open interval [start,end),
     in any case, in each dimension the interval is specified using a list [a,b]
     where a < b
     
-    - For 1D interval a single list in the for [a,b] has to be given 
+    - For 1D interval a single list in the form [a,b] has to be given 
     
     - A list of lists [[a,b],[c,d],...] are used for a n-dimensional 
         intervals, one for each dimension, i.e, len(inteval) = n_variables 
         
-    - A list-of-lists-of-lists for the union of n-dimensional intervals' 
+    - A list-of-lists-of-lists for the mathematical union of n-dimensional intervals' 
+    
+        [ [[a,b],[c,d],...],  [[e,f],[g,h],...], ... ]
     
     '''
     
