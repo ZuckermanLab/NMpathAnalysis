@@ -27,7 +27,7 @@ class MarkovStateModel:
     def __init__(self, lag_time = 1):
         '''
         sequence: 
-            Sequence of integers. Is a 1D discrete ensemble or 
+            Sequence of integers. Is a 1D discrete ensembles or 
         '''
         self.count_matrix = None
         self.lag_time = lag_time

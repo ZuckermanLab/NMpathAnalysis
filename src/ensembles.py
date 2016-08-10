@@ -3,10 +3,11 @@
 import numpy as np
 from copy import deepcopy
 import networkx as nx
+from numpy.linalg import inv
+from math import log
 
-from NMpathAnalysis.nmtools.interval import Interval
-from NMpathAnalysis.nmtools.functions import *
-
+from NMpathAnalysis.src.interval import Interval
+from NMpathAnalysis.nmtools.auxfunctions import get_shape, weighted_choice, reverse_sort_lists
 
 
 class Ensemble:
@@ -32,7 +33,7 @@ class Ensemble:
                 trajectory = np.array(trajectory, dtype = self.dtype)
             except:
                 raise Exception('Error while transforming the trajectory to a numpy array, make sure that the key value list_of_trajs is correct')
-            n_snapshots, n_variables = check_shape(trajectory)
+            n_snapshots, n_variables = get_shape(trajectory)
             self.n_variables = n_variables
             self.trajectories = [ trajectory ]
             
@@ -41,15 +42,15 @@ class Ensemble:
                 print('n_snapshots = {}, n_variables = {}'.format(n_snapshots, self.n_variables))
         else:
             # we have a list/array of trajectories
-            _n_snapshots, _n_variables = check_shape(trajectory[0]) # for the fist element
+            _n_snapshots, _n_variables = get_shape(trajectory[0]) # for the fist element
             
             self.trajectories = []
-            for i,element in enumerate(trajectory):
+            for element in trajectory:
                 try:
                     element = np.array(element, dtype = self.dtype)
                 except:
                     raise Exception('Error while transforming the trajectories to numpy arrays')
-                n_snapshots, n_variables = check_shape(trajectory[0])
+                n_snapshots, n_variables = get_shape(trajectory[0])
                 
                 if n_variables != _n_variables:
                     raise Exception('Error: All the trajectories must have the same number of variables')
@@ -65,7 +66,7 @@ class Ensemble:
         if not isinstance(trajectory, np.ndarray):
             trajectory = np.array(trajectory, dtype = self.dtype)
 
-        _n_snapshots, _n_variables = check_shape(trajectory)
+        _n_snapshots, _n_variables = get_shape(trajectory)
 
         if self.n_variables == 0: # Empty ensemble
             self.trajectories = [trajectory]
@@ -83,7 +84,8 @@ class Ensemble:
     
     
     def __str__(self):
-        return '{} with {} ({}-dimensional) trajectories'.format(self.__class__.__name__, self.__len__(), self.n_variables)
+        return '{} with {} ({}-dimensional) trajectories \nTotal number of snapshots: {}'.\
+               format(self.__class__.__name__, self.__len__(), self.n_variables, sum([len(traj) for traj in self]))
     
     
     def __add__(self, other):
@@ -123,15 +125,14 @@ class Ensemble:
         
         for traj in self.trajectories:
             previous_color = "Unknown"
-            state = "Unknown"
             for snapshot in traj:
                 #state and color determination
                 if snapshot in stateA:
-                    state = "A"; color = "A"
+                    color = "A"
                 elif snapshot in stateB:
-                    state = "B"; color = "B"
+                    color = "B"
                 else:
-                    state = "Unknown"; color = previous_color
+                    color = previous_color
                     
                 #passage times
                 if (color == "A") or (color == "B"):
@@ -166,10 +167,9 @@ class Ensemble:
         
         kinetics = {'mfptAB': mfptAB, 'std_err_mfptAB': std_err_mfptAB, 'mfptBA': mfptBA, 'std_err_mfptBA': std_err_mfptBA}
         
-        return kinetics            
-
-    #def populations(self,binbounds):
-        
+        return kinetics
+    
+    
     def _count_matrix(self, n_states = None, map_function = None):
         if (map_function is None) or (n_states is None):
             raise Exception('The number of states and a map function have to be given as argument')
@@ -212,12 +212,12 @@ class PathEnsemble(Ensemble):
         self.stateB = stateB
     
     @classmethod
-    def from_ensemble(cls, ensemble, _stateA, _stateB, mapping_function = None, discrete = False, dtype = 'float32'):
+    def from_ensemble(cls, ensemble, stateA = None, stateB = None, mapping_function = None, discrete = False, dtype = 'float32'):
         
         list_of_pathsAB = []
         
-        cls.discrete = discrete
-        cls.dtype = dtype
+        if (stateA is None) or (stateB is None):
+            raise Exception('The initial state (stateA) and final state (stateB) have to be specified')
         
         for traj in ensemble.trajectories:
             previous_color = "Unknown"
@@ -229,17 +229,17 @@ class PathEnsemble(Ensemble):
                 else: snapshot = _snapshot
                 
                 #color determination
-                if not cls.discrete:
-                    if snapshot in Interval(_stateA):
+                if not discrete:
+                    if snapshot in Interval(stateA):
                         color = "A"
-                    elif snapshot in Interval(_stateB):
+                    elif snapshot in Interval(stateB):
                         color = "B"
                     else:
                         color = previous_color
                 else:
-                    if snapshot in _stateA:
+                    if snapshot in stateA:
                         color = "A"
-                    elif snapshot in _stateB:
+                    elif snapshot in stateB:
                         color = "B"
                     else:
                         color = previous_color
@@ -248,16 +248,16 @@ class PathEnsemble(Ensemble):
                     pathAB.append(snapshot)
                 elif (color == "B") and (previous_color == "A"):
                     pathAB.append(snapshot)
-                    list_of_pathsAB.append(np.array(pathAB, dtype = cls.dtype))
+                    list_of_pathsAB.append(np.array(pathAB, dtype = dtype))
                     pathAB = []
                     
                 previous_color = color
 
-        return cls(list_of_pathsAB, list_of_trajs = True, stateA = _stateA, stateB = _stateB, dtype = cls.dtype, discrete = cls.discrete)     
+        return cls(list_of_pathsAB, list_of_trajs = True, stateA = stateA, stateB = stateB, dtype = dtype, discrete = discrete)     
     
     def cluster(self, distance_metric, n_cluster=10, method = 'K-means'):
         raise NotImplementedError('Not implemented yet')
-  
+
 
 class DiscreteEnsemble(Ensemble):
     '''
@@ -413,15 +413,16 @@ class DiscretePathEnsemble(DiscreteEnsemble, PathEnsemble, Ensemble):
             path = np.array(path)
             d_trajectories.append(path)
         
-        return cls(d_trajectories, list_of_trajs = True, stateA = stateA, stateB = stateB)
-                   
+        return cls(d_trajectories, list_of_trajs = True, stateA = stateA, stateB = stateB)          
 
     @classmethod
-    def from_ensemble(cls, ensemble, _stateA, _stateB, mapping_function = None):
+    def from_ensemble(cls, ensemble, stateA, stateB, mapping_function = None):
         if mapping_function is None:
             raise Exception('The mapping function has to be specified')
-        return PathEnsemble.from_ensemble(ensemble, _stateA, _stateB, mapping_function, discrete= True, dtype = 'int32')
+        trajs = PathEnsemble.from_ensemble(ensemble, stateA, stateB, mapping_function, discrete= True, dtype = 'int32').trajectories
+        return cls(trajs, list_of_trajs = True, stateA = stateA, stateB = stateB)
     
+
     def fundamental_sequences(self, transition_matrix):
         '''
         Divide/classify the path ensemble into fundamental sequences
@@ -436,13 +437,14 @@ class DiscretePathEnsemble(DiscreteEnsemble, PathEnsemble, Ensemble):
         fundamental_seqs = []
            
         for path in self.trajectories:
-            cmatrix = connectivity_matrix(path, transition_matrix)
-            path_graph = graph_from_matrix(cmatrix)
+            cmatrix = self.connectivity_matrix(path, transition_matrix)
+            path_graph = self.graph_from_matrix(cmatrix)
             shortest_path = nx.dijkstra_path(path_graph, path[0], path[-1], 'distance')
             fundamental_seqs.append(shortest_path)
         
         return fundamental_seqs
-    
+
+
     def weighted_fundamental_sequences(self, transition_matrix):
         fs_list = self.fundamental_sequences(transition_matrix)
         element_count ={}
@@ -465,30 +467,111 @@ class DiscretePathEnsemble(DiscreteEnsemble, PathEnsemble, Ensemble):
 
         return reversed_sorted_new_fs_list, reversed_sorted_weights
 
-
-
-
-
-###############################
-def mc_simulation(numsteps):
-    x = 5
-    I = Interval([0,100])
-    mc_traj = []
-    
-    for i in range(numsteps):
-        dx = np.random.uniform(-10,10)
-        if (x + dx) in I:
-            x = x + dx
-        mc_traj.append(x)
-    return np.array(mc_traj)
+    @staticmethod
+    def graph_from_matrix(matrix):
+        'Builds a directed Graph from a matrix like a transtion matrix'
         
-def simple_mapping(x):
-    return int(x/5)
+        size = len(matrix)
+        assert(size == len(matrix[0]))
+        matrix = np.array(matrix)
+            
+        G = nx.DiGraph()
+            
+        for node in range(size):
+            G.add_node(node)
+                
+        for i in range(size):
+            for j in range(size):
+                if (i != j) and (matrix[i,j] != 0.0):
+                    G.add_edge(i, j, distance = -log(matrix[i,j]) )
+        return G
+       
+    @staticmethod
+    def connectivity_matrix(path,matrix):
+        '''From a given path and a matrix construct a new matrix we call
+        connectivity matrix whose elements ij are zero if the transition i->j
+        is not observed in the path or (i=j), while keep the rest of the elements in the
+        input matrix.
+            
+        This way, from the connectivity matrix we could later create a graph that 
+        represents the path, being the "distance" between nodes equal to -log(Tij)
+            
+        Tij --> i,j element in the transition matrix 
+            
+        the path must be 1D array of indexes
+        '''
+        matrix = np.array(matrix)
+        path = np.array(path, dtype = 'int32')
+            
+        n_states = len(matrix)
+        assert(n_states == len(matrix[0]))
+            
+        c_matrix = np.zeros((n_states,n_states))
+            
+        for i in range(len(path)-1):
+            c_matrix[path[i],path[i+1]] = matrix[path[i],path[i+1]]
+                
+        return c_matrix
 
-def simple_mapping2(x):
-    return int(x/10)
-    
+
+    def nm_mfpt(self, stateA = None, stateB = None, ini_probs = None, n_states = None):
+        '''Computes the mean-first passage time from the transition matrix
+        '''
+        if ini_probs is None:
+            ini_probs = [1./len(stateA) for i in range(len(stateA))]
+        
+        rate_matrix = self._mle_transition_matrix(n_states)
+        
+        ini_state = list(stateA)
+        final_state = sorted(list(stateB))
+        
+        assert(len(ini_state) == len(ini_probs))
+      
+        for i in range(len(final_state)-1,-1,-1):
+            rate_matrix = np.delete(rate_matrix, final_state[i], axis=1)
+            rate_matrix = np.delete(rate_matrix, final_state[i], axis=0)
+            for j in range(len(ini_state)):
+                if final_state[i] < ini_state[j]:
+                    ini_state[j] = ini_state[j] - 1 
+      
+        newSize = len(rate_matrix)
+      
+        MFPT = 0.0
+
+        m = np.zeros(newSize)
+        I = np.identity(newSize)
+        c = np.array([1.0 for i in range(newSize)])
+
+        m = np.dot(inv(I-rate_matrix),c)
+      
+        sum_of_ini_probs = sum(ini_probs)
+
+        for i in range(len(ini_state)):
+            k = ini_state[i]
+            MFPT += ini_probs[i]*m[k]
+        MFPT = MFPT/sum_of_ini_probs
+
+        return MFPT
+
+
 def main():
+    def mc_simulation(numsteps):
+        x = 5
+        I = Interval([0,100])
+        mc_traj = []
+    
+        for i in range(numsteps):
+            dx = np.random.uniform(-10,10)
+            if (x + dx) in I:
+                x = x + dx
+            mc_traj.append(x)
+        return np.array(mc_traj)
+        
+    def simple_mapping(x):
+        return int(x/5)
+
+    def simple_mapping2(x):
+        return int(x/10)
 
     test_trajectory0 = mc_simulation(10000)
     test_trajectory1 = mc_simulation(10000)
@@ -523,10 +606,7 @@ def main():
     
     dpathEnsemble = DiscretePathEnsemble.from_ensemble(ensemble_tot, stateA, stateB, mapping_function=simple_mapping2)
     print(dpathEnsemble.mfpts(stateA,stateB))
-    
-    
-    
-    
+
 
 if __name__ == '__main__':
     main()

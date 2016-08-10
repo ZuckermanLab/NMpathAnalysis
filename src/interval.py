@@ -6,8 +6,7 @@ Created on Jul 28, 2016
 import numpy as np
 
 class Interval:
-    '''
-    Intervals are in general defined as half-open interval [start,end),
+    '''Intervals are in general defined as half-open interval [start,end),
     in any case, in each dimension the interval is specified using a list [a,b]
     where a < b
     
@@ -26,7 +25,7 @@ class Interval:
         self.range = range
             
 
-    def __contains__(self,item):
+    def __contains__(self, item):
         
         shape = np.array(self.range).shape
         
@@ -53,7 +52,12 @@ class Interval:
                 return False
         else:
             raise Exception('The given interval has not the expected shape')
-        
+    
+    def __iter__(self):
+        return iter(self.range)
+    
+    def __getitem__(self, arg):
+        return self.range[arg]
 
 if __name__ == '__main__':
     I = Interval([[2,3],[1,2]])
