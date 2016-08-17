@@ -9,7 +9,8 @@ import numpy as np
 
 from nmpath.auxfunctions import euclidean_distance
 
-def rectilinear_mapper(bin_bounds):
+
+def rectilinear_mapper(bb):
     '''Returns a function: 
         
         f : R^n --> N
@@ -19,8 +20,10 @@ def rectilinear_mapper(bin_bounds):
     will have its own index. The list bin_bounds stores for
     each dimension, the grid lines.
     '''
+    bin_bounds = bb
     def r_mapper(coords):
         global bin_bounds
+        # bin_bounds = b_bounds
 
         if isinstance(coords, Number):
             # if coords are a single number and not a list
@@ -86,16 +89,17 @@ def voronoi_mapper(voronoi_centers):
     return v_mapper
 
 
-def indentity_mapper(x):
+def identity(x):
+    '''Returns the same value guiven as input
+    '''
     return x
-
 
 
 ## Testing ####################################
 if __name__ == '__main__':
-    bin_bounds = [[0,2,5,7,9],[1,2,3]]
+    bb = [[0,2,5,7,9],[1,2,3]]
     
-    my_map = rectilinear_mapper(bin_bounds)
+    my_map = rectilinear_mapper(bb)
     coords = [5.5,2]
     print(my_map(coords))
 
