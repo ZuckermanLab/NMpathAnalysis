@@ -7,7 +7,8 @@ from numpy.linalg import inv
 from math import log
 
 from nmpath.interval import Interval
-from nmpath.auxfunctions import get_shape, weighted_choice, reverse_sort_lists
+from nmpath.auxfunctions import get_shape, weighted_choice
+from nmpath.auxfunctions import reverse_sort_lists, directional_mfpt
 from nmpath.mappers import rectilinear_mapper, voronoi_mapper, identity
 
 
@@ -495,44 +496,14 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
         return c_matrix
 
 
-    def nm_mfpt(self, stateA = None, stateB = None, ini_probs = None, n_states = None):
+    def nm_mfpt(self, ini_probs = None, n_states = None):
         '''Computes the mean-first passage time from the transition matrix
         '''
-        if ini_probs is None:
-            ini_probs = [1./len(stateA) for i in range(len(stateA))]
-        
-        rate_matrix = self._mle_transition_matrix(n_states)
-        
-        ini_state = list(stateA)
-        final_state = sorted(list(stateB))
-        
-        assert(len(ini_state) == len(ini_probs))
-      
-        for i in range(len(final_state)-1,-1,-1):
-            rate_matrix = np.delete(rate_matrix, final_state[i], axis=1)
-            rate_matrix = np.delete(rate_matrix, final_state[i], axis=0)
-            for j in range(len(ini_state)):
-                if final_state[i] < ini_state[j]:
-                    ini_state[j] = ini_state[j] - 1 
-      
-        newSize = len(rate_matrix)
-      
-        MFPT = 0.0
+        t_matrix = self._mle_transition_matrix(n_states)
+        ini_state = list(self.stateA)
+        final_state = sorted(list(self.stateB))
 
-        m = np.zeros(newSize)
-        I = np.identity(newSize)
-        c = np.array([1.0 for i in range(newSize)])
-
-        m = np.dot(inv(I-rate_matrix),c)
-      
-        sum_of_ini_probs = sum(ini_probs)
-
-        for i in range(len(ini_state)):
-            k = ini_state[i]
-            MFPT += ini_probs[i]*m[k]
-        MFPT = MFPT/sum_of_ini_probs
-
-        return MFPT
+        return directional_mfpt(t_matrix, ini_state, final_state, ini_probs)
 
 
 def main():
