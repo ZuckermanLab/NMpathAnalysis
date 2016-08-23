@@ -123,21 +123,44 @@ def random_markov_matrix(n_states=5):
     t_matrix = np.random.random((n_states,n_states))
     return normalize_markov_matrix(t_matrix)
 
+def is_not_a_tmatrix(t_matrix, accept_null_rows=True):
+    '''Check if the given matrix is actually a row-stockastic
+    transition matrix, i.e, all the elements are non-negative and
+    the rows add to one.
+    If the keyword argunment accept_null_rows is True, is going
+    to accept rows where all the elements are zero. Those "problematic"
+    states are going to be removed later if necessary by clean_tmatrix.
+    '''
+    n_states = len(t_matrix)
+    if not (n_states == len(t_matrix[0])):
+        return True
 
-def pops_from_tmatrix(transition_matrix):
-    '''Returns the eigen values and eigen vectors of the transposed
-    transition matrix
+    for index, row in enumerate(t_matrix):
+        sum_ = 0.0
+        for element in row:
+            if element < 0.0:
+                return True
+            sum_ += element
 
-    input: ndarray with shape = (n_states, n_states)
+        if accept_null_rows:
+            if not ( np.isclose(sum_, 1.0, atol=1e-6) or sum_ == 0.0 ):
+                return True
+        else:
+            if not np.isclose(sum_, 1.0, atol=1e-6):
+                return True
 
-    output: 
+    return False
+
+def clean_tmatrix(transition_matrix, rm_absorbing=True):
+    '''Removes the states/indexes with no transitions and 
+    the states that are absorbing if the the keyword argument
+    rm_absorbing is true
+    
+    Returns the "clean" transition matrix and a list with the
+    removed states/indexes (clean_tmatrix, removed_states)
     '''
     t_matrix = deepcopy(transition_matrix)
 
-    n_states = len(t_matrix)
-    assert(n_states == len(t_matrix[0]))
-
-    #Cleanning the transition matrix
     #--------------------------------
     #Removing the non-visited states and absorbing states
     removed_states = []
@@ -156,14 +179,36 @@ def pops_from_tmatrix(transition_matrix):
     #Renormalizing just in case 
     t_matrix = normalize_markov_matrix(t_matrix)
 
+    return t_matrix, removed_states
+
+
+def pops_from_tmatrix(transition_matrix):
+    '''Returns the eigen values and eigen vectors of the transposed
+    transition matrix
+
+    input: ndarray with shape = (n_states, n_states)
+
+    output: the solution, p, of K.T p = p where K.T is the transposed
+    transition matrix
+    '''
+    if is_not_a_tmatrix(transition_matrix):
+        raise ValueError('The matrix given is not a transition matrix')
+
+    n_states = len(transition_matrix)
+
+    #Cleanning the transition matrix
+    cleaned_matrix, removed_states = clean_tmatrix(transition_matrix)
+ 
     #Computing
-    eig_vals, eig_vecs = np.linalg.eig(t_matrix.T)
+    eig_vals, eig_vecs = np.linalg.eig(cleaned_matrix.T)
     eig_vecs = eig_vecs.T # for convinience, now every row is an eig_vector
 
-    eig_vals_close_to_one = np.isclose(eig_vals,1.0, atol=1e-8)
+    eig_vals_close_to_one = np.isclose(eig_vals,1.0, atol=1e-6)
     real_eig_vecs = [not np.iscomplex(row).any() for row in eig_vecs]
 
-    ss_solution = np.zeros(n_states) # steady-state solution
+    new_n_states = n_states - len(removed_states)
+
+    ss_solution = np.zeros(new_n_states) # steady-state solution
     for is_close_to_one, is_real, eigv in zip(eig_vals_close_to_one, real_eig_vecs, eig_vecs):
         if is_close_to_one and is_real and \
             num_of_nonzero_elements(eigv) > num_of_nonzero_elements(ss_solution) and\
@@ -286,22 +331,20 @@ def directional_mfpt(transition_matrix, stateA, stateB, ini_probs = None):
   
     new_size = len(t_matrix)
   
-    MFPT = 0.0
+    mfptAB = 0.0
 
     m = np.zeros(new_size)
     I = np.identity(new_size)
     c = np.array([1.0 for i in range(new_size)])
 
     m = np.linalg.inv(I-t_matrix) @ c
-  
-    sum_of_ini_probs = sum(ini_probs)
 
     for i in range(len(ini_state)):
         k = ini_state[i]
-        MFPT += ini_probs[i]*m[k]
-    MFPT = MFPT/sum_of_ini_probs
+        mfptAB += ini_probs[i]*m[k]
+    mfptAB = mfptAB/sum(ini_probs)
 
-    return MFPT
+    return mfptAB
 
 if __name__ == '__main__':
     #k= np.array([[1,2],[2,3]])
