@@ -229,7 +229,7 @@ def pops_from_tmatrix(transition_matrix):
 
 
 def markov_mfpts(transition_matrix, stateA, stateB):
-    '''Computes the mean first passage times A->B and B->A where
+    '''Computes the mean first passage times A->B and B->A
     from a markov model. The target state is not absorbing (no ss)
     '''
     transition_matrix = np.array(transition_matrix)
