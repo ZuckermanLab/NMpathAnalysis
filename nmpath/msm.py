@@ -4,7 +4,6 @@ Created on Jul 28, 2016
 '''
 
 import numpy as np
-from scipy import linalg, matrix
 
 class MarkovStateModel:
     '''
@@ -18,13 +17,9 @@ class MarkovStateModel:
     If only one sequence is given in sequences, the format has to be the same:
     
     sequences = [ [1 , 2, 0, ...] ]
-    
-    The first step should be to build the model, which creates the
-    count matrix, from which any parameter can be estimated
-    
     '''
 
-    def __init__(self, lag_time = 1):
+    def __init__(self, lag_time=1):
         '''
         sequence: 
             Sequence of integers. Is a 1D discrete ensembles or 
