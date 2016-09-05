@@ -22,7 +22,7 @@ def rectilinear_mapper(bb):
     '''
     bin_bounds = bb
     def r_mapper(coords):
-        global bin_bounds
+        nonlocal bin_bounds
         # bin_bounds = b_bounds
 
         if isinstance(coords, Number):
@@ -74,7 +74,7 @@ def voronoi_mapper(voronoi_centers):
     variable voronoi_centers
     '''
     def v_mapper(coords):
-        global voronoi_centers
+        nonlocal voronoi_centers
         closest_center_index = 0
         min_dist = float('inf')
         
@@ -108,8 +108,3 @@ if __name__ == '__main__':
     
     my_v_map = voronoi_mapper(voronoi_centers)
     print(my_v_map(1.2))
-
-
-
-    
-    
