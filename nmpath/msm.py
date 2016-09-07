@@ -55,6 +55,12 @@ class MarkovStateModel:
         self.prior_counts = prior_counts
 
 
+    def fit(sequence):
+        '''Fits the model from a list of sequences
+        '''
+        pass
+
+
         
     def build(self, n_sates, sequences):
         '''
