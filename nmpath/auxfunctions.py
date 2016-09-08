@@ -337,7 +337,7 @@ def directional_mfpt(transition_matrix, stateA, stateB, ini_probs = None):
     I = np.identity(new_size)
     c = np.array([1.0 for i in range(new_size)])
 
-    m = np.linalg.inv(I-t_matrix) @ c
+    m = np.dot(np.linalg.inv(I-t_matrix), c)
 
     for i in range(len(ini_state)):
         k = ini_state[i]
@@ -345,6 +345,27 @@ def directional_mfpt(transition_matrix, stateA, stateB, ini_probs = None):
     mfptAB = mfptAB/sum(ini_probs)
 
     return mfptAB
+
+
+def map_to_integers(sequence, mapping_dict=None):
+    '''Map a sequence of elements to a sequence of integers
+    for intance, maps [1, 'a', 1, 'b', 2.2] to [0, 1, 0, 2, 3]
+    '''
+    if mapping_dict is None:
+        mapping_dict = {}
+
+    new_sequence = np.zeros(len(sequence), dtype='int64')
+
+    counter = 0
+
+    for i, element in enumerate(sequence):
+        if element not in mapping_dict.keys():
+            mapping_dict[element] = counter
+            counter += 1
+
+        new_sequence[i] = mapping_dict[element]
+    return new_sequence, mapping_dict
+
 
 if __name__ == '__main__':
     #k= np.array([[1,2],[2,3]])
@@ -357,4 +378,9 @@ if __name__ == '__main__':
     print(markov_mfpts(T, [0], [4]))
     print(directional_mfpt(T,[0],[4],[1]))
 
+    sequence = [1, 'a', 1, 'b', 2.2, 3]
 
+    newseq, m_dict = map_to_integers(sequence,{})
+
+    print(newseq)
+    print(m_dict)
