@@ -7,7 +7,10 @@ import numpy as np
 
 class MarkovStateModel:
     '''Markov State Model
-    ------------------
+    ----------------------
+    **Based on MSMBuilder sofware (this is a simplified version)
+    https://github.com/msmbuilder/msmbuilder
+
     Fits a regular Markov model from a list of 1D sequences of integers
     
     For example:
@@ -19,28 +22,35 @@ class MarkovStateModel:
     sequences = [ [1 , 2, 0, ...] ]
 
     Parameters
-    ...........
+    ----------
     lag_time (integer, default: 1) 
         Lag time of the model.
-    reversible (boolean, default: true) 
+    reversible_type: {None, 'transpose','mle'}
         Enforce the reversibility of the transition matrix.
-        Method by which the reversibility of the transition matrix
-        is enforced. 'mle' uses a maximum likelihood method that is
-        solved by numerical optimization, and 'transpose'
-        uses a more restrictive (but less computationally complex)
-        direct symmetrization of the expected number of counts.
+        
+        possible values:
+        ---------------
+        - None (Default): If selected, the reversibility is not enforced.
+        - 'transpose': the count matrix is averaged with its transposed.
+        - 'mle': Maximum likelihood estimator (J. Chem. Phys. 2011, 134, 174105)
+
     prior_counts (integer)
-        Add a number of "pseudo counts" to each entry in the counts matrix
-        after ergodic trimming.  When prior_counts == 0 (default), the assigned
-        transition probability between two states with no observed transitions
-        will be zero, whereas when prior_counts > 0, even this unobserved
-        transitions will be given nonzero probability.
+        Add prior counts (the same for all the elements of the count matrix).
+
     sliding_window (boolean)
-        Count transitions using a window of length ``lag_time``, which is slid
-        along the sequences 1 unit at a time, yielding transitions which
-        contain more data but cannot be assumed to be statistically
-        independent. Otherwise, the sequences are simply subsampled at an
-        interval of ``lag_time``.
+        Use a sliding window of length lag_time to compute the count matrix
+
+    Attributes
+    ----------
+    n_states : int
+
+    count_matrix: array, with shape (n_states, n_states)
+        Stores the number of transitions between states, the i,j element cij
+        stores the number of transitions observed from i to j.
+
+    populations: array, shape (n_states,)
+        Equilibrium population, the steady state solution of of the 
+        transition matrix
     '''
     
 
