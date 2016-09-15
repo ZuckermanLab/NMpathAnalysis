@@ -67,6 +67,7 @@ class MarkovStateModel:
 
     def fit(sequence):
         '''Fits the model from a list of sequences
+        
         '''
         pass
 
