@@ -8,7 +8,7 @@ import numpy as np
 class MarkovStateModel:
     '''Markov State Model
     ----------------------
-    **Based on MSMBuilder sofware (this is a simplified version)
+    **API Based on MSMBuilder sofware (this is a simplified version)
     https://github.com/msmbuilder/msmbuilder
 
     Fits a regular Markov model from a list of 1D sequences of integers
@@ -25,14 +25,15 @@ class MarkovStateModel:
     ----------
     lag_time (integer, default: 1) 
         Lag time of the model.
-    reversible_type: {None, 'transpose','mle'}
+    reversible_type: {'transpose','mle','revmle'}
         Enforce the reversibility of the transition matrix.
         
         possible values:
         ---------------
-        - None (Default): If selected, the reversibility is not enforced.
+        - 'mle': If selected, the reversibility is not enforced (regular MLE)
         - 'transpose': the count matrix is averaged with its transposed.
-        - 'mle': Maximum likelihood estimator (J. Chem. Phys. 2011, 134, 174105)
+        - 'revmle': Maximum likelihood estimator for reversible 
+                    matrix (J. Chem. Phys. 2011, 134, 174105)
 
     prior_counts (integer)
         Add prior counts (the same for all the elements of the count matrix).
@@ -54,21 +55,34 @@ class MarkovStateModel:
     '''
     
 
-    def __init__(self, lag_time=1, reversible_type=None, prior_counts=0, sliding_window=True):
-        '''
-        sequence: 
-            Sequence of integers. Is a 1D discrete ensembles or 
-        '''
+    def __init__(self, lag_time=1, reversible_type=None, prior_counts=0, 
+                sliding_window=True):
         self.reversible_type = reversible_type
         self.lag_time = lag_time
         self.sliding_window = sliding_window
         self.prior_counts = prior_counts
+        self.transition_matrix = None
+        self.count_matrix = None
+
+        if reversible_type is None:
+            serevesble_type = 'mle'
+        else if reversible_type is not in ('mle','transpose','revmle'):
+            raise ValueError('Reversible type: {} is not valid', reversible_type)
+        
+        self.reversible_type = reversible_type
+
+        if (self.lag_time < 1) or (int(self.lag_time) != int(self.lag_time)):
+            raise ValueError('The lag time should be an integer greater than 1')
 
 
     def fit(sequence):
-        '''Fits the model from a list of sequences
+        '''Fits the the markov model from a list of sequences
         
         '''
+        ## maps the given sequence to an internal sequence
+        #map = {}
+
+
         pass
 
 

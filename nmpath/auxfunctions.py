@@ -366,6 +366,141 @@ def map_to_integers(sequence, mapping_dict=None):
         new_sequence[i] = mapping_dict[element]
     return new_sequence, mapping_dict
 
+def symmetric_difference(A,B):
+      #A and B have to be sets
+      A = set(A)
+      B = set(B)
+      distance = float(len((A|B)-(A&B))))
+      return distance
+
+def max_distanceSets(A,B,distance_matrix,r,dist_reference):
+      max_distance = 0
+      for i in A:
+            for j in B:
+                  distance = distance_matrix[i,j]
+                  if distance > dist_reference:
+                        return distance
+                  elif distance > max_distance:
+                        max_distance = distance
+      return  max_distance
+
+def cluster_list(sequences,seqcount, maxclusters,minclusters,rweight):
+      counts = seqcount[:]
+      num_of_clusters = len(sequences) #sequenses is a list of sets
+      intersections = sequences[:]
+      unions = [[i] for i in xrange(num_of_clusters)]
+
+      # computing the distance matrix
+      distance_matrix = np.zeros([num_of_clusters, num_of_clusters])
+      for i in xrange(num_of_clusters):
+            for j in xrange(i+1, num_of_clusters):
+                  distance_matrix[i,j] = distanceSets(sequences[i],sequences[j],rweight)
+                  distance_matrix[j,i] = distance_matrix[i,j]
+      while num_of_clusters > minclusters:
+            min_distance = 99999999
+            for i in xrange(num_of_clusters):
+                  for j in xrange(i+1,num_of_clusters):
+                        dAB = max_distanceSets(unions[i],unions[j],distance_matrix,rweight,min_distance)
+                        if dAB < min_distance:
+                              index_i = i
+                              index_j = j
+                              min_distance = dAB
+            counts[index_i] += counts[index_j]
+            unions[index_i] = unions[index_i] + unions[index_j]
+            intersections[index_i] = intersections[index_i] & intersections[index_j]
+            del counts[index_j]
+            del unions[index_j]
+            del intersections[index_j]
+            num_of_clusters = len(counts)
+
+            if num_of_clusters <= maxclusters:
+                  print "\n CLUSTERS: ", num_of_clusters
+                  for count,intersection in sorted(zip(counts,intersections), reverse = True):
+                        print float(count)/numberOfPaths, list(intersection)
+
+      return unions, intersections, counts, distance_matrix
+
+
+def cluster_analisys(setOfpaths, maxclusters, minclusters, rweight,cluster_center_paths):
+      sequences,counts = reduce_list(setOfpaths)
+      unions, intersections, newcounts, distance_matrix = cluster_list(sequences,counts, maxclusters, minclusters, rweight)
+      do_classification_from_clustering = True
+      if do_classification_from_clustering:
+            if cluster_center_paths == []:
+                  print "\nComputing the center of each cluster: "
+                  cluster_centers = []
+                  cluster_center_paths = []
+                  for cluster in unions:
+                        size = len(cluster)
+                        max_distances = [0 for i in xrange(size)]
+                        min_max_distance = 99999999999
+                        min_max_index = [-1 for i in xrange(size)]
+                        for i in xrange(size):
+                              for j in xrange(size):
+                                    if  max_distances[i] < distance_matrix[cluster[i],cluster[j]]:
+                                          max_distances[i] = distance_matrix[cluster[i],cluster[j]]
+                              if min_max_distance > max_distances[i]:
+                                    min_max_distance= max_distances[i]
+                                    min_max_index = cluster[i]
+
+                        cluster_centers.append(min_max_index)
+                        cluster_center_paths.append(sequences[min_max_index])
+                  print cluster_centers
+                  print "cluster_center_paths = ",cluster_center_paths
+            else:
+                  print "\nCenter of each cluster given: "
+                  print "cluster_center_paths = ",cluster_center_paths
+
+            print "\n Classification"
+            counts_voronoi = [0 for i in xrange(minclusters)]
+            for i,path in enumerate(sequences):
+                  min_index = 0
+                  min_distance = 9999999999
+                  for j,center in enumerate(cluster_center_paths):
+                        distance  = distanceSets(path,center,rweight)
+                        if min_distance > distance:
+                              min_distance = distance
+                              min_index = j
+                  counts_voronoi[min_index] += counts[i]
+
+            for count,countvoronoi, intersection in sorted(zip(newcounts,counts_voronoi,intersections), reverse = True):
+                  print float(countvoronoi)/numberOfPaths, list(intersection)
+
+      showResultsClassification(counts_voronoi,message="\nClassification sumary from the Matrix Simulation")
+
+      return cluster_center_paths
+
+def classification(allpaths,cluster_center_paths):
+      print "\n Classification for the actual dynamics based on the voroi centers guiven"
+      if cluster_center_paths == []:
+            print "Voronoi centers not found"
+            sys.exit()
+      for element in allpaths:
+            element = set(element)
+      sequences,counts = reduce_list(allpaths)
+      counts_voronoi = [0 for i in xrange(minclusters)]
+      for i,path in enumerate(sequences):
+            min_index = 0
+            min_distance = 9999999999
+            for j,center in enumerate(cluster_center_paths):
+                  distance  = distanceSets(path,center,rweight)
+                  if min_distance > distance:
+                        min_distance = distance
+                        min_index = j
+            counts_voronoi[min_index] += counts[i]
+
+      showResultsClassification(counts_voronoi,message="\nClassification sumary from the actual Simulation")
+
+def showResultsClassification(counts_voronoi,message):
+      print message
+      suma = sum(counts_voronoi)
+      print "Number of events: ", suma
+      print "Counts: ", counts_voronoi
+      probs = [float(counts_voronoi[i])/suma for i in xrange(len(counts_voronoi))]
+      stderr = [math.sqrt((1.0-p)*p/suma) for p in probs]
+      print "Probs:  ", probs
+      print "Stderr: ", stderr
+
 
 if __name__ == '__main__':
     #k= np.array([[1,2],[2,3]])
