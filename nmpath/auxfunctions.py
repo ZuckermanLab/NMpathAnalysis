@@ -3,42 +3,43 @@ Created on Jul 29, 2016
 
 '''
 import numpy as np
-from math import log
 import operator
 from copy import deepcopy
 
-def euclidean_distance(x,y):
+
+def euclidean_distance(x, y):
     'Returns the euclidean distance between two vectors/scalars.'
-    x = np.array(x); y = np.array(y)
-    return np.sqrt(np.dot((x-y).T,(x-y)))
+    x = np.array(x)
+    y = np.array(y)
+    return np.sqrt(np.dot((x - y).T, (x - y)))
 
 
-def reverse_sort_lists(list_1,list_2):
+def reverse_sort_lists(list_1, list_2):
     '''Reverse sorting two list based on the first one.
     Returns both list.
     '''
-    list_1_sorted, list_2_sorted = zip(*sorted(zip(list_1, list_2), \
-                                        key=operator.itemgetter(0), \
-                                        reverse=True))
+    list_1_sorted, list_2_sorted = zip(*sorted(zip(list_1, list_2),
+                                               key=operator.itemgetter(0),
+                                               reverse=True))
     return list_1_sorted, list_2_sorted
-    
 
-def weighted_choice(list_, weights = None):
-    '''Selects/returns an element from a list with probability 
+
+def weighted_choice(list_, weights=None):
+    '''Selects/returns an element from a list with probability
     given by the a list of weights.
     '''
-    
+
     size = len(list_)
     if weights is not None:
         assert(size == len(weights))
-    
+
     if weights is None:
-        probs = np.array([1/float(size) for i in range(size)])
+        probs = np.array([1 / float(size) for i in range(size)])
     else:
-        probs = np.array(weights)/sum(weights) # just in case
-    
+        probs = np.array(weights) / sum(weights)  # just in case
+
     rand = np.random.random()
-    
+
     _sum = 0
     for i in range(size):
         if _sum <= rand < _sum + probs[i]:
@@ -46,7 +47,7 @@ def weighted_choice(list_, weights = None):
             break
         else:
             _sum += probs[i]
-    
+
     return list_[choice]
 
 
@@ -55,17 +56,20 @@ def get_shape(trajectory):
     through the tuple (n_snapshots, n_variables)
     '''
     shape = trajectory.shape
-    
+
     if len(shape) == 1:
-        n_snapshots = shape[0] 
-        n_variables =1
+        n_snapshots = shape[0]
+        n_variables = 1
         if n_variables == 0:
-            raise Exception('The shape {} of the trajectory/array given is not as expected'.format(shape))
+            raise Exception('The shape {} of the trajectory/array \
+            given is not as expected'.format(shape))
     elif len(shape) == 2:
         n_snapshots = shape[0]
         n_variables = shape[1]
-    else: 
-        raise Exception('The shape {} of the trajectory/array given is not as expected'.format(shape))
+    else:
+        raise Exception(
+            'The shape {} of the trajectory/array given is not \
+            as expected'.format(shape))
 
     return n_snapshots, n_variables
 
@@ -77,7 +81,7 @@ def num_of_nonzero_elements(my_vector):
     for element in my_vector:
         if element != 0:
             counter += 1
-    return counter 
+    return counter
 
 
 def normalize_markov_matrix(transition_matrix):
@@ -85,17 +89,18 @@ def normalize_markov_matrix(transition_matrix):
     matrix by divding each row by the sum of the elements of the
     row.
     '''
-    t_matrix = np.array(transition_matrix,dtype=np.float64)
+    t_matrix = np.array(transition_matrix, dtype=np.float64)
 
     n_states = len(t_matrix)
     assert(n_states == len(t_matrix[0]))
-    
+
     for i in range(n_states):
-        if (t_matrix[i,:] < 0).any():
-            raise ValueError('All the elements in the input matrix must be non-negative')
-        t_matrix[i,:] = normalize(t_matrix[i,:])
+        if (t_matrix[i, :] < 0).any():
+            raise ValueError('All the elements in the input \
+            matrix must be non-negative')
+        t_matrix[i, :] = normalize(t_matrix[i, :])
         # sum_ = sum(t_matrix[i,:])
-        
+
         # if sum_ != 0.0:
         #     for j in range(n_states):
         #         t_matrix[i,j] = t_matrix[i,j]/sum_
@@ -120,8 +125,9 @@ def normalize(my_vector):
 def random_markov_matrix(n_states=5):
     '''Returns a random transition markov matrix
     '''
-    t_matrix = np.random.random((n_states,n_states))
+    t_matrix = np.random.random((n_states, n_states))
     return normalize_markov_matrix(t_matrix)
+
 
 def is_not_a_tmatrix(t_matrix, accept_null_rows=True):
     '''Check if the given matrix is actually a row-stockastic
@@ -143,7 +149,7 @@ def is_not_a_tmatrix(t_matrix, accept_null_rows=True):
             sum_ += element
 
         if accept_null_rows:
-            if not ( np.isclose(sum_, 1.0, atol=1e-6) or sum_ == 0.0 ):
+            if not (np.isclose(sum_, 1.0, atol=1e-6) or sum_ == 0.0):
                 return True
         else:
             if not np.isclose(sum_, 1.0, atol=1e-6):
@@ -151,32 +157,35 @@ def is_not_a_tmatrix(t_matrix, accept_null_rows=True):
 
     return False
 
+
 def clean_tmatrix(transition_matrix, rm_absorbing=True):
-    '''Removes the states/indexes with no transitions and 
+    '''Removes the states/indexes with no transitions and
     the states that are absorbing if the the keyword argument
     rm_absorbing is true
-    
+
     Returns the "clean" transition matrix and a list with the
     removed states/indexes (clean_tmatrix, removed_states)
     '''
     t_matrix = deepcopy(transition_matrix)
 
-    #--------------------------------
-    #Removing the non-visited states and absorbing states
+    # -------------------------------
+    # Removing the non-visited states and absorbing states
     removed_states = []
-    for index in range(n_states-1,-1,-1):
-        if not any(t_matrix[index]): #non-visited
+    for index in range(n_states - 1, -1, -1):
+        if not any(t_matrix[index]):  # non-visited
             t_matrix = np.delete(t_matrix, index, axis=1)
             t_matrix = np.delete(t_matrix, index, axis=0)
             removed_states.append(index)
-        elif t_matrix[index,index] == 1.: #absorbing state
-            if not all([ t_matrix[index,j] == 0.0 for j in range(n_states) if j != index ]):
-                raise ValueError('The sum of the elements in a row of the transition matrix must be one')
+        elif t_matrix[index, index] == 1.:  # absorbing state
+            if not all([t_matrix[index, j] == 0.0 for j in range(n_states) if j != index]):
+                raise ValueError(
+                    'The sum of the elements in a row of the \
+                    transition matrix must be one')
             t_matrix = np.delete(t_matrix, index, axis=1)
             t_matrix = np.delete(t_matrix, index, axis=0)
             removed_states.append(index)
 
-    #Renormalizing just in case 
+    # Renormalizing just in case
     t_matrix = normalize_markov_matrix(t_matrix)
 
     return t_matrix, removed_states
@@ -196,27 +205,29 @@ def pops_from_tmatrix(transition_matrix):
 
     n_states = len(transition_matrix)
 
-    #Cleanning the transition matrix
+    # Cleanning the transition matrix
     cleaned_matrix, removed_states = clean_tmatrix(transition_matrix)
- 
-    #Computing
-    eig_vals, eig_vecs = np.linalg.eig(cleaned_matrix.T)
-    eig_vecs = eig_vecs.T # for convinience, now every row is an eig_vector
 
-    eig_vals_close_to_one = np.isclose(eig_vals,1.0, atol=1e-6)
+    # Computing
+    eig_vals, eig_vecs = np.linalg.eig(cleaned_matrix.T)
+    eig_vecs = eig_vecs.T  # for convinience, now every row is an eig_vector
+
+    eig_vals_close_to_one = np.isclose(eig_vals, 1.0, atol=1e-6)
     real_eig_vecs = [not np.iscomplex(row).any() for row in eig_vecs]
 
     new_n_states = n_states - len(removed_states)
 
-    ss_solution = np.zeros(new_n_states) # steady-state solution
+    ss_solution = np.zeros(new_n_states)  # steady-state solution
     for is_close_to_one, is_real, eigv in zip(eig_vals_close_to_one, real_eig_vecs, eig_vecs):
         if is_close_to_one and is_real and \
-            num_of_nonzero_elements(eigv) > num_of_nonzero_elements(ss_solution) and\
-            ((eigv <= 0).all() or (eigv >= 0).all()):
+                num_of_nonzero_elements(eigv) > \
+                num_of_nonzero_elements(ss_solution) and\
+                ((eigv <= 0).all() or (eigv >= 0).all()):
             ss_solution = eigv
 
     if (ss_solution == 0.0).all():
-        raise Exception('No steady-state solution found for the given transition matrix')
+        raise Exception('No steady-state solution found for \
+        the given transition matrix')
 
     ss_solution = normalize(ss_solution).real
 
@@ -233,27 +244,27 @@ def markov_mfpts(transition_matrix, stateA, stateB):
     from a markov model. The target state is not absorbing (no ss)
     '''
     transition_matrix = np.array(transition_matrix)
-     
+
     n_states = len(transition_matrix)
-     
-    #pseudo non-markovian matrix (auxiliar_matrix)
-    auxiliar_matrix = np.zeros((2*n_states,2*n_states))
-     
-    for i in range(2*n_states):
-        for j in range(2*n_states):
-            auxiliar_matrix[i,j] = transition_matrix[int(i/2),int(j/2)]
-     
+
+    # pseudo non-markovian matrix (auxiliar_matrix)
+    auxiliar_matrix = np.zeros((2 * n_states, 2 * n_states))
+
+    for i in range(2 * n_states):
+        for j in range(2 * n_states):
+            auxiliar_matrix[i, j] = transition_matrix[int(i / 2), int(j / 2)]
+
     for i in range(n_states):
         for j in range(n_states):
             if (i in stateB) or (j in stateB):
-                auxiliar_matrix[2*i,2*j] = 0.0
+                auxiliar_matrix[2 * i, 2 * j] = 0.0
             if (i in stateA) or (j in stateA):
-                auxiliar_matrix[2*i+1,2*j+1] = 0.0
+                auxiliar_matrix[2 * i + 1, 2 * j + 1] = 0.0
             if (not (j in stateA)) or (i in stateA):
-                auxiliar_matrix[2*i+1,2*j] = 0.0
+                auxiliar_matrix[2 * i + 1, 2 * j] = 0.0
             if (not (j in stateB)) or (i in stateB):
-                auxiliar_matrix[2*i,2*j+1] = 0.0
-                  
+                auxiliar_matrix[2 * i, 2 * j + 1] = 0.0
+
     # Is going to return a MARKOVIAN mfpt since the auxiliar
     # matrix was build from a pure markovian matrix
     return non_markov_mfpts(auxiliar_matrix, stateA, stateB)
@@ -265,84 +276,84 @@ def non_markov_mfpts(nm_transition_matrix, stateA, stateB):
     The shape of the transition matrix should be (2*n_states, 2*n_states)
     '''
     labeled_pops = pops_from_tmatrix(nm_transition_matrix)
-    #labeled_pops = solveMarkovMatrix(nm_transition_matrix)
+    # labeled_pops = solveMarkovMatrix(nm_transition_matrix)
 
-    n_states = len(labeled_pops)//2
-     
+    n_states = len(labeled_pops) // 2
+
     fluxAB = 0
     fluxBA = 0
 
-    for i in range(0, 2*n_states, 2):
-        for j in range(2*n_states):
-            if int(j/2) in stateB:
-                fluxAB += labeled_pops[i] * nm_transition_matrix[i,j]
+    for i in range(0, 2 * n_states, 2):
+        for j in range(2 * n_states):
+            if int(j / 2) in stateB:
+                fluxAB += labeled_pops[i] * nm_transition_matrix[i, j]
 
-    for i in range(1, 2*n_states+1, 2):
-        for j in range(2*n_states):
-            if int(j/2) in stateA:
-                fluxBA += labeled_pops[i] * nm_transition_matrix[i,j]
+    for i in range(1, 2 * n_states + 1, 2):
+        for j in range(2 * n_states):
+            if int(j / 2) in stateA:
+                fluxBA += labeled_pops[i] * nm_transition_matrix[i, j]
 
     pop_colorA = 0.0
     pop_colorB = 0.0
 
-    for i in range(0, 2*n_states, 2):
-            pop_colorA += labeled_pops[i]
+    for i in range(0, 2 * n_states, 2):
+        pop_colorA += labeled_pops[i]
 
-    for i in range(1, 2*n_states+1, 2):
-            pop_colorB += labeled_pops[i]
+    for i in range(1, 2 * n_states + 1, 2):
+        pop_colorB += labeled_pops[i]
 
-    if fluxAB == 0: 
+    if fluxAB == 0:
         mfptAB = float('inf')
     else:
-        mfptAB = pop_colorA/fluxAB
+        mfptAB = pop_colorA / fluxAB
 
-    if fluxBA == 0: 
+    if fluxBA == 0:
         mfptBA = float('inf')
     else:
-        mfptBA = pop_colorB/fluxBA
+        mfptBA = pop_colorB / fluxBA
 
-    return dict(mfptAB = mfptAB, mfptBA = mfptBA)
+    return dict(mfptAB=mfptAB, mfptBA=mfptBA)
 
 
-def directional_mfpt(transition_matrix, stateA, stateB, ini_probs = None):
+def directional_mfpt(transition_matrix, stateA, stateB, ini_probs=None):
     '''Computes the mean-first passage in a single direction A->B
     using a recursive procedure. This method is useful when there is no
-    B->A ensemble, for instance when B is absorbing. 
+    B->A ensemble, for instance when B is absorbing.
     '''
     lenA = len(stateA)
     lenB = len(stateB)
 
     if ini_probs is None:
-        ini_probs = [1./lenA for i in range(lenA)]
-    
+        ini_probs = [1. / lenA for i in range(lenA)]
+
     t_matrix = deepcopy(transition_matrix)
-    
+
     ini_state = list(stateA)
     final_state = sorted(list(stateB))
-    
+
     assert(lenA == len(ini_probs))
-  
-    for i in range(lenB-1,-1,-1):
+
+    for i in range(lenB - 1, -1, -1):
         t_matrix = np.delete(t_matrix, final_state[i], axis=1)
         t_matrix = np.delete(t_matrix, final_state[i], axis=0)
         for j in range(lenA):
             if final_state[i] < ini_state[j]:
-                ini_state[j] = ini_state[j] - 1 
-  
+                ini_state[j] = ini_state[j] - 1
+
     new_size = len(t_matrix)
-  
+
     mfptAB = 0.0
 
     m = np.zeros(new_size)
     I = np.identity(new_size)
     c = np.array([1.0 for i in range(new_size)])
 
-    m = np.dot(np.linalg.inv(I-t_matrix), c)
+    m = np.dot(np.linalg.inv(I - t_matrix), c)
 
     for i in range(len(ini_state)):
         k = ini_state[i]
-        mfptAB += ini_probs[i]*m[k]
-    mfptAB = mfptAB/sum(ini_probs)
+        mfptAB += ini_probs[i] * m[k]
+    mfptAB = mfptAB / sum(ini_probs)
 
     return mfptAB
 
@@ -366,144 +377,9 @@ def map_to_integers(sequence, mapping_dict=None):
         new_sequence[i] = mapping_dict[element]
     return new_sequence, mapping_dict
 
-def symmetric_difference(A,B):
-      #A and B have to be sets
-      A = set(A)
-      B = set(B)
-      distance = float(len((A|B)-(A&B))))
-      return distance
-
-def max_distanceSets(A,B,distance_matrix,r,dist_reference):
-      max_distance = 0
-      for i in A:
-            for j in B:
-                  distance = distance_matrix[i,j]
-                  if distance > dist_reference:
-                        return distance
-                  elif distance > max_distance:
-                        max_distance = distance
-      return  max_distance
-
-def cluster_list(sequences,seqcount, maxclusters,minclusters,rweight):
-      counts = seqcount[:]
-      num_of_clusters = len(sequences) #sequenses is a list of sets
-      intersections = sequences[:]
-      unions = [[i] for i in xrange(num_of_clusters)]
-
-      # computing the distance matrix
-      distance_matrix = np.zeros([num_of_clusters, num_of_clusters])
-      for i in xrange(num_of_clusters):
-            for j in xrange(i+1, num_of_clusters):
-                  distance_matrix[i,j] = distanceSets(sequences[i],sequences[j],rweight)
-                  distance_matrix[j,i] = distance_matrix[i,j]
-      while num_of_clusters > minclusters:
-            min_distance = 99999999
-            for i in xrange(num_of_clusters):
-                  for j in xrange(i+1,num_of_clusters):
-                        dAB = max_distanceSets(unions[i],unions[j],distance_matrix,rweight,min_distance)
-                        if dAB < min_distance:
-                              index_i = i
-                              index_j = j
-                              min_distance = dAB
-            counts[index_i] += counts[index_j]
-            unions[index_i] = unions[index_i] + unions[index_j]
-            intersections[index_i] = intersections[index_i] & intersections[index_j]
-            del counts[index_j]
-            del unions[index_j]
-            del intersections[index_j]
-            num_of_clusters = len(counts)
-
-            if num_of_clusters <= maxclusters:
-                  print "\n CLUSTERS: ", num_of_clusters
-                  for count,intersection in sorted(zip(counts,intersections), reverse = True):
-                        print float(count)/numberOfPaths, list(intersection)
-
-      return unions, intersections, counts, distance_matrix
-
-
-def cluster_analisys(setOfpaths, maxclusters, minclusters, rweight,cluster_center_paths):
-      sequences,counts = reduce_list(setOfpaths)
-      unions, intersections, newcounts, distance_matrix = cluster_list(sequences,counts, maxclusters, minclusters, rweight)
-      do_classification_from_clustering = True
-      if do_classification_from_clustering:
-            if cluster_center_paths == []:
-                  print "\nComputing the center of each cluster: "
-                  cluster_centers = []
-                  cluster_center_paths = []
-                  for cluster in unions:
-                        size = len(cluster)
-                        max_distances = [0 for i in xrange(size)]
-                        min_max_distance = 99999999999
-                        min_max_index = [-1 for i in xrange(size)]
-                        for i in xrange(size):
-                              for j in xrange(size):
-                                    if  max_distances[i] < distance_matrix[cluster[i],cluster[j]]:
-                                          max_distances[i] = distance_matrix[cluster[i],cluster[j]]
-                              if min_max_distance > max_distances[i]:
-                                    min_max_distance= max_distances[i]
-                                    min_max_index = cluster[i]
-
-                        cluster_centers.append(min_max_index)
-                        cluster_center_paths.append(sequences[min_max_index])
-                  print cluster_centers
-                  print "cluster_center_paths = ",cluster_center_paths
-            else:
-                  print "\nCenter of each cluster given: "
-                  print "cluster_center_paths = ",cluster_center_paths
-
-            print "\n Classification"
-            counts_voronoi = [0 for i in xrange(minclusters)]
-            for i,path in enumerate(sequences):
-                  min_index = 0
-                  min_distance = 9999999999
-                  for j,center in enumerate(cluster_center_paths):
-                        distance  = distanceSets(path,center,rweight)
-                        if min_distance > distance:
-                              min_distance = distance
-                              min_index = j
-                  counts_voronoi[min_index] += counts[i]
-
-            for count,countvoronoi, intersection in sorted(zip(newcounts,counts_voronoi,intersections), reverse = True):
-                  print float(countvoronoi)/numberOfPaths, list(intersection)
-
-      showResultsClassification(counts_voronoi,message="\nClassification sumary from the Matrix Simulation")
-
-      return cluster_center_paths
-
-def classification(allpaths,cluster_center_paths):
-      print "\n Classification for the actual dynamics based on the voroi centers guiven"
-      if cluster_center_paths == []:
-            print "Voronoi centers not found"
-            sys.exit()
-      for element in allpaths:
-            element = set(element)
-      sequences,counts = reduce_list(allpaths)
-      counts_voronoi = [0 for i in xrange(minclusters)]
-      for i,path in enumerate(sequences):
-            min_index = 0
-            min_distance = 9999999999
-            for j,center in enumerate(cluster_center_paths):
-                  distance  = distanceSets(path,center,rweight)
-                  if min_distance > distance:
-                        min_distance = distance
-                        min_index = j
-            counts_voronoi[min_index] += counts[i]
-
-      showResultsClassification(counts_voronoi,message="\nClassification sumary from the actual Simulation")
-
-def showResultsClassification(counts_voronoi,message):
-      print message
-      suma = sum(counts_voronoi)
-      print "Number of events: ", suma
-      print "Counts: ", counts_voronoi
-      probs = [float(counts_voronoi[i])/suma for i in xrange(len(counts_voronoi))]
-      stderr = [math.sqrt((1.0-p)*p/suma) for p in probs]
-      print "Probs:  ", probs
-      print "Stderr: ", stderr
-
 
 if __name__ == '__main__':
-    #k= np.array([[1,2],[2,3]])
+    # k= np.array([[1,2],[2,3]])
     n_states = 5
 
     T = random_markov_matrix(n_states)
@@ -511,11 +387,11 @@ if __name__ == '__main__':
     pops = pops_from_tmatrix(T)
     print(pops)
     print(markov_mfpts(T, [0], [4]))
-    print(directional_mfpt(T,[0],[4],[1]))
+    print(directional_mfpt(T, [0], [4], [1]))
 
     sequence = [1, 'a', 1, 'b', 2.2, 3]
 
-    newseq, m_dict = map_to_integers(sequence,{})
+    newseq, m_dict = map_to_integers(sequence, {})
 
     print(newseq)
     print(m_dict)
