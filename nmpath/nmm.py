@@ -4,6 +4,7 @@ Created on Jul 28, 2016
 '''
 
 import numpy as np
+from auxfunctions import map_to_integers
 
 
 class NonMarkovModel:
@@ -54,53 +55,38 @@ class NonMarkovModel:
         transition matrix
     '''
 
-    def __init__(self, lag_time=1, reversible_type=None, prior_counts=0,
-                 sliding_window=True):
-        self.reversible_type = reversible_type
+    def __init__(self, trajectories=None, stateA=None, stateB=None,
+                 lag_time=1, clean_traj=False):
         self.lag_time = lag_time
-        self.sliding_window = sliding_window
-        self.prior_counts = prior_counts
-        self.transition_matrix = None
-        self.count_matrix = None
-
-        if reversible_type is None:
-            serevesble_type = 'mle'
-        else if reversible_type is not in ('mle', 'transpose', 'revmle'):
-            raise ValueError('Reversible type: {} is not valid', reversible_type)
-
-        self.reversible_type = reversible_type
+        self.trajectories = trajectories
+        self.stateA = stateA
+        self.stateB = stateB
 
         if (self.lag_time < 1) or (int(self.lag_time) != int(self.lag_time)):
-            raise ValueError('The lag time should be an integer greater than 1')
+            raise ValueError('The lag time should be an integer \
+            greater than 1')
 
-    def estimate_nm_model(sequence, stateA, stateB):
+        # Clean the sequences
+        if clean_traj:
+            seq_map = {}
+            for seq in self.trajectories:
+                newseq, m_dict = map_to_integers(seq, seq_map)
+                seq = newseq
+            self._stateA = [seq_map[i] for i in self.stateA]
+            self._stateB = [seq_map[i] for i in self.stateB]
+
+    def mfpt(self, sequences, stateA, stateB):
         '''Fits the the markov model from a list of sequences
 
         '''
-        # maps the given sequence to an internal sequence
-        #map = {}
-
-        pass
-
-    def build(self, n_sates, sequences):
-        '''
-        Compute count matrix
-        '''
-
-        self.count_matrix = np.matrix((n_states, n_states))
-
-        for sequence in sequences:
-            previous_state = "Unknown"
-            for state in sequence:
-                if previous_state != "Unknown":
-                    count_matrix[previous_state, state] += 1.0
-            previous_state = current_state
-
-        return count_matrix
 
 
 def main():
-    pass
+    trajectories = [[3, 1, 5, 4]]
+
+    model = NonMarkovModel(trajectories, stateA=[3], stateB=[4])
+    print(model._stateA)
+    print(model._stateB)
 
 
 if __name__ == '__main__':
