@@ -218,7 +218,8 @@ def pops_from_tmatrix(transition_matrix):
     new_n_states = n_states - len(removed_states)
 
     ss_solution = np.zeros(new_n_states)  # steady-state solution
-    for is_close_to_one, is_real, eigv in zip(eig_vals_close_to_one, real_eig_vecs, eig_vecs):
+    for is_close_to_one, is_real, eigv in zip(eig_vals_close_to_one,
+                                              real_eig_vecs, eig_vecs):
         if is_close_to_one and is_real and \
                 num_of_nonzero_elements(eigv) > \
                 num_of_nonzero_elements(ss_solution) and\
