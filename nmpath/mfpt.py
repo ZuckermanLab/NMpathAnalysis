@@ -5,6 +5,91 @@ Created on Jul 29, 2016
 import numpy as np
 from copy import deepcopy
 import auxfunctions as aux
+from interval import Interval
+
+
+def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True, n_variables=None):
+    """Direct MFPTs calculation (no model involved) by tracing the trajectories.
+
+    trajectories:   List of trajectories [traj1, traj2, traj4], each trajectory
+                    can be a one dimensional array, e.g.,
+                        [[1,2,1, ...], [0,1,1, ...], ... ]
+                    or a mutidimensional array (matrix) where each column
+                    represents the evolution of a variable.
+
+                    Important: If a single trajectory is given as argument it
+                    also has to be inside a list (e.g. [traj1])
+
+    stateA, stateB: If the trajectories are discrete (discrete = True), both
+                    states are a list of indexes. However, if the trajectories
+                    are not discrete, the states are "intervals" (see Interval
+                    class).
+    """
+
+    if (stateA is None) or (stateB is None):
+        raise Exception('The final and initial states have to be defined to compute the MFPT')
+
+    if not discrete:
+        '''
+        The states are considered/transformed-to intervals if the Ensemble
+        is a set of continuous trajectories
+        '''
+        if n_variables is None:
+            raise Exception('In continuous trajectories the number of variables is needed')
+
+        stateA = Interval(stateA, n_variables)
+        stateB = Interval(stateB, n_variables)
+
+    passageTimeAB = []
+    passageTimeBA = []
+    fpt_counter = 0  # first passage time counter
+
+    for traj in trajectories:
+        previous_color = "Unknown"
+        for snapshot in traj:
+            # state and color determination
+            if snapshot in stateA:
+                color = "A"
+            elif snapshot in stateB:
+                color = "B"
+            else:
+                color = previous_color
+
+            # passage times
+            if (color == "A") or (color == "B"):
+                fpt_counter += 1
+
+            if previous_color == "A" and color == "B":
+                passageTimeAB.append(fpt_counter)
+                fpt_counter = 0
+            elif previous_color == "B" and color == "A":
+                passageTimeBA.append(fpt_counter)
+                fpt_counter = 0
+            elif previous_color == "Unknown" and (color == "A" or color == "B"):
+                fpt_counter = 0
+
+            previous_color = color
+
+    try:
+        mfptAB = float(sum(passageTimeAB)) / len(passageTimeAB)
+        std_err_mfptAB = np.std(passageTimeAB) / np.sqrt(len(passageTimeAB))
+    except:
+        print('WARNING: No A->B events observed')
+        mfptAB = 'NaN'
+        std_err_mfptAB = 'NaN'
+
+    try:
+        mfptBA = float(sum(passageTimeBA)) / len(passageTimeBA)
+        std_err_mfptBA = np.std(passageTimeBA) / np.sqrt(len(passageTimeBA))
+    except:
+        print('WARNING: No B->A events observed')
+        mfptBA = 'NaN'
+        std_err_mfptBA = 'NaN'
+
+    kinetics = {'mfptAB': mfptAB, 'std_err_mfptAB': std_err_mfptAB,
+                'mfptBA': mfptBA, 'std_err_mfptBA': std_err_mfptBA}
+
+    return kinetics
 
 
 def markov_mfpts(transition_matrix, stateA, stateB):
@@ -123,8 +208,6 @@ def directional_mfpt(transition_matrix, stateA, stateB, ini_probs=None):
         mfptAB += ini_probs[i] * m[k]
     mfptAB = mfptAB / sum(ini_probs)
 
-    print(m)
-
     return mfptAB
 
 
@@ -170,6 +253,33 @@ def mfpts_matrix(transition_matrix):
     return mfpt_m
 
 
+def min_commute_time(matrix_of_mfpts):
+    """Returns the min commuting time (round trip time) between all pairs
+    of microstates from the matrix of mfpts. It also returns the indexes
+    of the pair of microstates involved"""
+
+    matrix_of_mfpts = np.array(matrix_of_mfpts)
+
+    n_states = len(matrix_of_mfpts)
+    assert(n_states == len(matrix_of_mfpts[0]) and n_states >= 2)
+
+    # Initial values, arbitrary choice
+    index_i = 0
+    index_j = 1
+
+    commute_times = matrix_of_mfpts + matrix_of_mfpts.T
+    min_ct = commute_times[index_i, index_j]
+
+    for i in range(n_states):
+        for j in range(i + 1, n_states):
+            if commute_times[i, j] < min_ct:
+                min_ct = commute_times[i, j]
+                index_i = i
+                index_j = j
+
+    return min_ct, index_i, index_j
+
+
 if __name__ == '__main__':
     # k= np.array([[1,2],[2,3]])
     n_states = 5
@@ -181,8 +291,10 @@ if __name__ == '__main__':
     print(markov_mfpts(T, [0], [4]))
     print(directional_mfpt(T, [0], [4], [1]))
     print(mfpts_to_target_microstate(T, 4))
-
-    print(mfpt_matrix(T))
+    print()
+    print(mfpts_matrix(T))
+    print()
+    print(min_commute_time(mfpts_matrix(T)))
 
     #sequence = [1, 'a', 1, 'b', 2.2, 3]
 
