@@ -5,6 +5,7 @@ Created on Jul 28, 2016
 
 import numpy as np
 from auxfunctions import map_to_integers
+from ensembles import Ensemble
 
 
 class NonMarkovModel:
@@ -56,26 +57,33 @@ class NonMarkovModel:
     '''
 
     def __init__(self, trajectories=None, stateA=None, stateB=None,
-                 lag_time=1, clean_traj=False):
+                 lag_time=1, clean_traj=True):
         self.lag_time = lag_time
         self.trajectories = trajectories
         self.stateA = stateA
         self.stateB = stateB
+        self.clean_traj = clean_traj
 
         if (self.lag_time < 1) or (int(self.lag_time) != int(self.lag_time)):
             raise ValueError('The lag time should be an integer \
             greater than 1')
 
+        self.map_trajectories_to_integers()
+
+    def map_trajectories_to_integers(self):
         # Clean the sequences
-        if clean_traj:
+        if self.clean_traj:
             seq_map = {}
             for seq in self.trajectories:
                 newseq, m_dict = map_to_integers(seq, seq_map)
                 seq = newseq
             self._stateA = [seq_map[i] for i in self.stateA]
             self._stateB = [seq_map[i] for i in self.stateB]
+        else:
+            self._stateA = self.stateA
+            self._stateB = self.stateB
 
-    def mfpt(self, sequences, stateA, stateB):
+    def mfpt(self, sequences, _stateA, _stateB):
         '''Fits the the markov model from a list of sequences
 
         '''
@@ -87,6 +95,9 @@ def main():
     model = NonMarkovModel(trajectories, stateA=[3], stateB=[4])
     print(model._stateA)
     print(model._stateB)
+
+    for traj in model.trajectories:
+        print(traj)
 
 
 if __name__ == '__main__':
