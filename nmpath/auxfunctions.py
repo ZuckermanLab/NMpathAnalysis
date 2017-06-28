@@ -264,14 +264,52 @@ def map_to_integers(sequence, mapping_dict=None):
     return new_sequence, mapping_dict
 
 
+def merge_microstates_in_tmatrix(transition_matrix, ms1, ms2):
+    '''Merge two microstates (ms1 and ms2) in the transition matrix, i.e.,
+    returns the transition matrix that we would obtain if the microstates where
+    merged befored the estimation of the transition matrix. The transition
+    matrix is expected to be a square numpy array'''
+
+    p = pops_from_tmatrix(transition_matrix)
+    size = len(transition_matrix)
+    final_tmatrix = np.copy(transition_matrix)
+
+    # sum of the columns with indexes ms1 and ms2
+    # and saved in the index state1.
+    for k in range(size):
+        final_tmatrix[k, ms1] += final_tmatrix[k, ms2]
+
+    # weighted sum of the rows
+    for k in range(size):
+        final_tmatrix[ms1, k] = (p[ms1] * final_tmatrix[ms1, k] +
+                                 p[ms2] * final_tmatrix[ms2, k]) / \
+            (p[ms1] + p[ms2])
+
+    final_tmatrix = np.delete(final_tmatrix, ms2, axis=1)
+    final_tmatrix = np.delete(final_tmatrix, ms2, axis=0)
+
+    return final_tmatrix
+
+
 if __name__ == '__main__':
     # k= np.array([[1,2],[2,3]])
     n_states = 5
 
-    T = random_markov_matrix(n_states)
+    T = random_markov_matrix(n_states, seed=2)
+    print('Populations:')
+    print(pops_from_tmatrix(T))
 
-    pops = pops_from_tmatrix(T)
-    print(pops)
+    print('\nOriginal t_matrix:')
+    print(T)
+
+    print('\nAfter mergin state 0 and 1:')
+    merged_matrix = merge_microstates_in_tmatrix(T, 0, 1)
+    print(merged_matrix)
+
+    print('\nSum of each row')
+    print(np.sum(merged_matrix, axis=1))
+
+    print()
     print(mfpt.markov_mfpts(T, [0], [4]))
     print(mfpt.directional_mfpt(T, [0], [4], [1]))
 
