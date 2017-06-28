@@ -9,6 +9,7 @@ from nmpath.interval import Interval
 from nmpath.auxfunctions import get_shape, weighted_choice
 from nmpath.auxfunctions import reverse_sort_lists
 from nmpath.mfpt import directional_mfpt
+from nmpath.mfpt import direct_mfpts
 
 
 class Ensemble:
@@ -115,69 +116,10 @@ class Ensemble:
     def __getitem__(self, arg):
         return self.trajectories[arg]
 
-    def mfpts(self, stateA=None, stateB=None):
-        # mean first passage times calculation
-        if (stateA is None) or (stateB is None):
-            raise Exception('The final and initial states have to be defined to compute the MFPT')
-
-        if not self.discrete:
-            '''
-            The states are considered/transformed-to intervals if the Ensemble
-            is a set of continuous trajectories
-            '''
-            stateA = Interval(stateA)
-            stateB = Interval(stateB)
-
-        passageTimeAB = []
-        passageTimeBA = []
-        fpt_counter = 0  # first passage time counter
-
-        for traj in self.trajectories:
-            previous_color = "Unknown"
-            for snapshot in traj:
-                # state and color determination
-                if snapshot in stateA:
-                    color = "A"
-                elif snapshot in stateB:
-                    color = "B"
-                else:
-                    color = previous_color
-
-                # passage times
-                if (color == "A") or (color == "B"):
-                    fpt_counter += 1
-
-                if previous_color == "A" and color == "B":
-                    passageTimeAB.append(fpt_counter)
-                    fpt_counter = 0
-                elif previous_color == "B" and color == "A":
-                    passageTimeBA.append(fpt_counter)
-                    fpt_counter = 0
-                elif previous_color == "Unknown" and (color == "A" or color == "B"):
-                    fpt_counter = 0
-
-                previous_color = color
-
-        try:
-            mfptAB = float(sum(passageTimeAB)) / len(passageTimeAB)
-            std_err_mfptAB = np.std(passageTimeAB) / np.sqrt(len(passageTimeAB))
-        except:
-            print('WARNING: No A->B events observed')
-            mfptAB = 'NaN'
-            std_err_mfptAB = 'NaN'
-
-        try:
-            mfptBA = float(sum(passageTimeBA)) / len(passageTimeBA)
-            std_err_mfptBA = np.std(passageTimeBA) / np.sqrt(len(passageTimeBA))
-        except:
-            print('WARNING: No B->A events observed')
-            mfptBA = 'NaN'
-            std_err_mfptBA = 'NaN'
-
-        kinetics = {'mfptAB': mfptAB, 'std_err_mfptAB': std_err_mfptAB,
-                    'mfptBA': mfptBA, 'std_err_mfptBA': std_err_mfptBA}
-
-        return kinetics
+    def mfpts(self, stateA, stateB):
+        return direct_mfpts(self.trajectories, stateA,
+                            stateB, discrete=self.discrete,
+                            n_variables=self.n_variables)
 
     def _count_matrix(self, n_states=None, map_function=None):
         if (map_function is None) or (n_states is None):
@@ -225,6 +167,11 @@ class PathEnsemble(Ensemble):
 
         list_of_pathsAB = []
 
+        try:
+            n_variables = len(ensemble[0][0])
+        except:
+            n_variables = 1
+
         if (stateA is None) or (stateB is None):
             raise Exception(
                 'The initial state (stateA) and final state (stateB) \
@@ -242,9 +189,9 @@ class PathEnsemble(Ensemble):
 
                 # color determination
                 if not discrete:
-                    if snapshot in Interval(stateA):
+                    if snapshot in Interval(stateA, n_variables):
                         color = "A"
-                    elif snapshot in Interval(stateB):
+                    elif snapshot in Interval(stateB, n_variables):
                         color = "B"
                     else:
                         color = previous_color
