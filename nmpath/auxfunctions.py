@@ -123,9 +123,11 @@ def normalize(my_vector):
     return my_vector
 
 
-def random_markov_matrix(n_states=5):
+def random_markov_matrix(n_states=5, seed=None):
     '''Returns a random transition markov matrix
     '''
+    if seed is not None:
+        np.random.seed(seed)
     t_matrix = np.random.random((n_states, n_states))
     return normalize_markov_matrix(t_matrix)
 
