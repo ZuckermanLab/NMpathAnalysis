@@ -3,71 +3,68 @@
 import numpy as np
 from copy import deepcopy
 import networkx as nx
-from numpy.linalg import inv
 from math import log
 
 from nmpath.interval import Interval
 from nmpath.auxfunctions import get_shape, weighted_choice
-from nmpath.auxfunctions import reverse_sort_lists, directional_mfpt
-from nmpath.mappers import rectilinear_mapper, voronoi_mapper, identity
+from nmpath.auxfunctions import reverse_sort_lists
+from nmpath.mfpt import directional_mfpt
 
 
 class Ensemble:
     '''
-    Stores a list of space-continuous trajectories.
+    Stores a list of space-continuous trajectories, e.g.:
+    [ trajectory1, trajectory2,...], each trajectory is just a matrix
+    where each row is a snapshot, and each column represents the evolution
+    of the corresponding variable.
     '''
 
-    def __init__(self, trajectory=None, list_of_trajs=False, verbose=False,
+    def __init__(self, trajectories=None, verbose=False,
                  dtype='float32', discrete=False, **kwargs):
         '''
-        trajectory:      is a single trajectory that can be used to instantiate
+        trajectories: List of array of trajectories
         '''
         super().__init__(**kwargs)
         self.dtype = dtype
         self.discrete = discrete
+        self.verbose = verbose
 
-        if (trajectory is None) or (trajectory == []):
+        if (trajectories is None) or (trajectories == []):
             self.trajectories = []
             self.n_variables = 0
             if verbose:
                 print('\nEmpty ensemble generated')
 
-        elif not list_of_trajs:
-            # we a a single trajectory
-            try:
-                trajectory = np.array(trajectory, dtype=self.dtype)
-            except:
-                raise Exception(
-                    'Error while transforming the trajectory to a numpy \
-                    array, make sure that the key value list_of_trajs \
-                    is correct')
-            n_snapshots, n_variables = get_shape(trajectory)
-            self.n_variables = n_variables
-            self.trajectories = [trajectory]
-
-            if verbose:
-                print('\nSingle trajectory was read with shape {}'.format(trajectory.shape))
-                print('n_snapshots = {}, n_variables = {}'.format(n_snapshots, self.n_variables))
         else:
             # we have a list/array of trajectories
-            _n_snapshots, _n_variables = get_shape(trajectory[0])
+            _n_snapshots, _n_variables = get_shape(trajectories[0])
 
             self.trajectories = []
-            for element in trajectory:
+            traj_length = 0.0  # Average trajectory length
+            for element in trajectories:
+                traj_length += len(element)
                 try:
                     element = np.array(element, dtype=self.dtype)
                 except:
-                    raise Exception('Error while transforming the \
-                    trajectories to numpy arrays')
-                n_snapshots, n_variables = get_shape(trajectory[0])
+                    raise Exception('Error while transforming the '
+                                    'trajectories to numpy arrays')
+                n_snapshots, n_variables = get_shape(element)
 
                 if n_variables != _n_variables:
                     raise Exception(
-                        'Error: All the trajectories must have the same \
-                        number of variables')
-                self.trajectories.append(element)
+                        'Error: All the trajectories must have the same '
+                        'number of variables')
 
             self.n_variables = _n_variables
+            self.trajectories = trajectories
+            n_trajs = len(trajectories)
+
+            traj_length /= n_trajs  # Average
+
+            if verbose:
+                print('Read {} ({}-dimensional) trajectories of '
+                      'average length {}.'.format(n_trajs, n_variables,
+                                                  traj_length))
 
     def add_trajectory(self, trajectory):
         '''
@@ -81,23 +78,25 @@ class Ensemble:
         if self.n_variables == 0:  # Empty ensemble
             self.trajectories = [trajectory]
             self.n_variables = _n_variables
+            if self.verbose:
+                print(self)
         else:
             if self.n_variables != _n_variables:
                 raise Exception(
-                    'All the trajectories in the same ensemble must \
-                    have the same number of variables')
+                    'All the trajectories in the same ensemble must '
+                    'have the same number of variables')
             else:
                 self.trajectories.append(trajectory)
+                if self.verbose:
+                    print(self)
 
     def __len__(self):
         # returns the number of trajectories in the ensemble
         return len(self.trajectories)
 
     def __str__(self):
-        return '{} with {} ({}-dimensional) trajectories \nTotal number \
-        of snapshots: {}'.\
-               format(self.__class__.__name__, self.__len__(),
-                      self.n_variables, sum([len(traj) for traj in self]))
+        return '\n{} with {} ({}-dimensional) trajectories'.format(self.__class__.__name__, self.__len__(), self.n_variables) +\
+            '\nTotal number of snapshots: {}'.format(sum([len(traj) for traj in self]))
 
     def __add__(self, other):
         ensemble_sum = deepcopy(self)
@@ -119,8 +118,7 @@ class Ensemble:
     def mfpts(self, stateA=None, stateB=None):
         # mean first passage times calculation
         if (stateA is None) or (stateB is None):
-            raise Exception('The final and initial states have to be \
-            defined to compute the MFPT')
+            raise Exception('The final and initial states have to be defined to compute the MFPT')
 
         if not self.discrete:
             '''
@@ -213,11 +211,12 @@ class Ensemble:
 
 class PathEnsemble(Ensemble):
 
-    def __init__(self, trajectory=None, list_of_trajs=False, verbose=False, dtype='float32', discrete=False, stateA=None, stateB=None, **kwargs):
-        super().__init__(trajectory, list_of_trajs, verbose, dtype, discrete, **kwargs)
+    def __init__(self, trajectory=None, verbose=False, dtype='float32', discrete=False, stateA=None, stateB=None, **kwargs):
+        super().__init__(trajectory, verbose, dtype, discrete, **kwargs)
         if (stateA is None) or (stateB is None):
             raise Exception(
-                'The initial state (stateA) and final state (stateB) have to be specified')
+                'The initial state (stateA) and final state (stateB) \
+                 have to be specified')
         self.stateA = stateA
         self.stateB = stateB
 
@@ -266,7 +265,7 @@ class PathEnsemble(Ensemble):
 
                 previous_color = color
 
-        return cls(list_of_pathsAB, list_of_trajs=True, stateA=stateA,
+        return cls(list_of_pathsAB, stateA=stateA,
                    stateB=stateB, dtype=dtype, discrete=discrete)
 
     def cluster(self, distance_metric, n_cluster=10, method='K-means'):
@@ -278,9 +277,9 @@ class DiscreteEnsemble(Ensemble):
     Discrete trajectory
     '''
 
-    def __init__(self, trajectory=None, list_of_trajs=False, verbose=False,
+    def __init__(self, trajectory=None, verbose=False,
                  dtype='int32', discrete=True, **kwargs):
-        super().__init__(trajectory, list_of_trajs, verbose, dtype,
+        super().__init__(trajectory, verbose, dtype,
                          discrete, **kwargs)
         if (self.n_variables != 1) and (self.n_variables != 0):
             raise Exception(
@@ -305,7 +304,7 @@ class DiscreteEnsemble(Ensemble):
                 for snapshot in traj:
                     d_traj = np.append(d_traj, np.array([map_function(snapshot)]), axis=0)
                 discrete_trajs_list.append(d_traj)
-            return cls(discrete_trajs_list, list_of_trajs=True)
+            return cls(discrete_trajs_list)
         else:
             # it is a single trajectory or array
             d_traj = []
@@ -338,7 +337,7 @@ class DiscreteEnsemble(Ensemble):
             discrete_traj = np.append(discrete_traj, [next_state], axis=0)
             current_state = next_state
 
-        return cls(discrete_traj, verbose=False)
+        return cls([discrete_traj], verbose=False)
 
     def _count_matrix(self, n_states):
 
@@ -371,8 +370,8 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
 
     """
 
-    def __init__(self, trajectory=None, list_of_trajs=False, verbose=False, dtype='int32', discrete=True, stateA=None, stateB=None, **kwargs):
-        super().__init__(trajectory, list_of_trajs, verbose, dtype, discrete, stateA, stateB, **kwargs)
+    def __init__(self, trajectory=None, verbose=False, dtype='int32', discrete=True, stateA=None, stateB=None, **kwargs):
+        super().__init__(trajectory, verbose, dtype, discrete, stateA, stateB, **kwargs)
 
     @classmethod
     def from_transition_matrix(cls, transition_matrix, stateA=None, stateB=None, n_paths=1000, ini_pops=None,  max_iters=1000000000):
@@ -424,7 +423,7 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
             path = np.array(path)
             d_trajectories.append(path)
 
-        return cls(d_trajectories, list_of_trajs=True, stateA=stateA, stateB=stateB)
+        return cls(d_trajectories, stateA=stateA, stateB=stateB)
 
     @classmethod
     def from_ensemble(cls, ensemble, stateA, stateB, map_function=None):
@@ -433,7 +432,7 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
                 'The mapping function has to be specified, if you are sure you do not want any mapping use: map_function = identity_mapper')
         trajs = PathEnsemble.from_ensemble(
             ensemble, stateA, stateB, map_function, discrete=True, dtype='int32').trajectories
-        return cls(trajs, list_of_trajs=True, stateA=stateA, stateB=stateB)
+        return cls(trajs, stateA=stateA, stateB=stateB)
 
     def fundamental_sequences(self, transition_matrix):
         '''
@@ -502,11 +501,12 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
     def connectivity_matrix(path, matrix):
         '''From a given path and a matrix construct a new matrix we call
         connectivity matrix whose elements ij are zero if the transition i->j
-        is not observed in the path or (i=j), while keep the rest of the elements in the
-        input matrix.
+        is not observed in the path or (i=j), while keep the rest of the
+        elements in the input matrix.
 
-        This way, from the connectivity matrix we could later create a graph that
-        represents the path, being the "distance" between nodes equal to -log(Tij)
+        This way, from the connectivity matrix we could later create a graph
+        that represents the path, being the "distance" between nodes equal
+        to -log(Tij)
 
         Tij --> i,j element in the transition matrix
 
@@ -560,7 +560,7 @@ def main():
 
     stateA = [0, 10]
     stateB = [90, 100]
-    ensemble0 = Ensemble(test_trajectory0)
+    ensemble0 = Ensemble([test_trajectory0], verbose=True)
     print('\nmfpts from the continuous simulation: given t0')
     print(ensemble0.mfpts(stateA, stateB))
     print('\nNum of trajs: ', len(ensemble0))
@@ -568,13 +568,14 @@ def main():
     ensemble0.add_trajectory(test_trajectory1)
     print('\nNum of trajs: ', len(ensemble0))
 
-    ensemble2 = Ensemble(test_trajectory2, verbose=True)
+    ensemble2 = Ensemble([test_trajectory2], verbose=True)
 
     ensemble_tot = ensemble0 + ensemble2
     print('\nNum of trajs: ', len(ensemble_tot))
     print(np.array(ensemble_tot.trajectories).shape)
     print(ensemble_tot.mfpts(stateA, stateB))
-    K = ensemble_tot._mle_transition_matrix(n_states=10, map_function=simple_mapping2)
+    K = ensemble_tot._mle_transition_matrix(n_states=10,
+                                            map_function=simple_mapping2)
 
     pathE = PathEnsemble.from_ensemble(ensemble_tot, stateA, stateB)
     print(pathE)
