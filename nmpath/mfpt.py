@@ -123,23 +123,70 @@ def directional_mfpt(transition_matrix, stateA, stateB, ini_probs=None):
         mfptAB += ini_probs[i] * m[k]
     mfptAB = mfptAB / sum(ini_probs)
 
+    print(m)
+
     return mfptAB
+
+
+def mfpts_to_target_microstate(transition_matrix, target):
+    '''Computes all the mean-first passage to a target microstate (k).
+    Returns a list where the i-element is mfpt(i->k). This function is
+    useful to compute the mfpt matrix.
+
+    target: integer number that specifies the index of the state. The indexes
+            should be consistent with the transition matrix and python
+            (i.e. starting from 0)
+    '''
+
+    t_matrix = deepcopy(transition_matrix)
+
+    t_matrix = np.delete(t_matrix, target, axis=1)
+    t_matrix = np.delete(t_matrix, target, axis=0)
+
+    new_size = len(t_matrix)
+
+    m = np.zeros(new_size)
+    I = np.identity(new_size)
+    c = np.array([1.0 for i in range(new_size)])
+
+    m = np.dot(np.linalg.inv(I - t_matrix), c)
+    m = np.insert(m, target, 0.0)
+
+    return m
+
+
+def mfpts_matrix(transition_matrix):
+    '''Returns the MFPT matrix, i.e., the matrix where the ij-element is the
+    MFPT(i->j)
+    '''
+
+    size = len(transition_matrix)
+    temp_values = []
+
+    for i in range(size):
+        temp_values.append(mfpts_to_target_microstate(transition_matrix, i))
+
+    mfpt_m = np.array(temp_values).T  # to nummpy array and transposed
+    return mfpt_m
 
 
 if __name__ == '__main__':
     # k= np.array([[1,2],[2,3]])
     n_states = 5
 
-    T = aux.random_markov_matrix(n_states)
+    T = aux.random_markov_matrix(n_states, seed=1)
 
     pops = aux.pops_from_tmatrix(T)
     print(pops)
     print(markov_mfpts(T, [0], [4]))
     print(directional_mfpt(T, [0], [4], [1]))
+    print(mfpts_to_target_microstate(T, 4))
 
-    sequence = [1, 'a', 1, 'b', 2.2, 3]
+    print(mfpt_matrix(T))
 
-    newseq, m_dict = aux.map_to_integers(sequence, {})
+    #sequence = [1, 'a', 1, 'b', 2.2, 3]
 
-    print(newseq)
-    print(m_dict)
+    #newseq, m_dict = aux.map_to_integers(sequence, {})
+
+    # print(newseq)
+    # print(m_dict)
