@@ -96,7 +96,11 @@ class Ensemble:
         return len(self.trajectories)
 
     def __str__(self):
-        return '\n{} with {} ({}-dimensional) trajectories'.format(self.__class__.__name__, self.__len__(), self.n_variables) +\
+        if self.discrete:
+            feature = "Discrete "
+        else:
+            feature = "Continuous "
+        return '\n' + feature + '{} with {} ({}-dimensional) trajectories'.format(self.__class__.__name__, self.__len__(), self.n_variables) +\
             '\nTotal number of snapshots: {}'.format(sum([len(traj) for traj in self]))
 
     def __add__(self, other):
@@ -286,9 +290,9 @@ class DiscreteEnsemble(Ensemble):
 
         return cls([discrete_traj], verbose=False)
 
-    def _count_matrix(self, n_states):
+    def _count_matrix(self, n_states, prior_counts=0):
 
-        count_matrix = np.zeros((n_states, n_states))
+        count_matrix = np.zeros((n_states, n_states)) + prior_counts
 
         for traj in self.trajectories:
             for i in range(len(traj) - 1):
