@@ -1,5 +1,5 @@
 import numpy as np
-from math import pi,sin,exp
+from math import pi,sin,exp,sqrt
 import matplotlib.pyplot as plt
 import scipy.interpolate
 import matplotlib.cm as cm
@@ -10,17 +10,18 @@ from nmpath.auxfunctions import *
 from nmpath.ensembles import *
 
 # global variable: number of partitions per dimension in the 2D toy model
-N = 6 
+N = 12
 
 def energy(x,y):
     if (x > 6*pi) or (x < 0) or (y > 6*pi) or (y < 0):
         return 10**10
     else:
-        ener = 1.5*(1 - sin(x) * sin(y)) + 0.0009*(((x - (9 * sin(y/3) + y))**2) * (y - (9*sin(x/3) + x))**2)
+        ener = 0.02*(1 - sin(x) * sin(y)) + 0.0002*(((x - (9 * sin(y/3) + y))**2) * (y - (9*sin(x/3) + x))**2) + 7*sin((x+y)/sqrt(144))**2
+        #ener = 1.5*(1 - sin(x) * sin(y)) + 0.0009*(((x - (9 * sin(y/3) + y))**2) * (y - (9*sin(x/3) + x))**2)
         return ener
     
 
-def plot_traj(list_of_trajs, discrete=[False], line_width=0.5, std = 0.3, color = None, alpha = 0.5 ,title = ''):
+def plot_traj(list_of_trajs, discrete=[False], line_width=0.5, std = 0.3, color = None, alpha = 0.5 ,title = '', justpoints=False):
     
 
     length = 6*pi
@@ -43,25 +44,49 @@ def plot_traj(list_of_trajs, discrete=[False], line_width=0.5, std = 0.3, color 
     plt.fill_between(xlist, 0, pi, where = ylist <= pi, facecolor='green', alpha = 0.4)
     plt.fill_between(xlist, 5*pi, 6*pi, where = xlist >= 5*pi, facecolor='green', alpha = 0.4)
     plt.title(title, fontsize = 17)
+
+
+    if justpoints: 
+
+        for i,element in enumerate(list_of_trajs):
+            if type(line_width) == list:
+                lw = line_width[i]
+            else:
+                lw = line_width
+                
+            if not discrete[i]:
+                if color is None:
+                    plt.scatter(element[0],element[1], color=np.random.rand(3,1))
+                else: plt.scatter(element[0],element[1], color=color)
+                
+            else:
+                xi = np.array(element[0])
+                x_values = [((length/N)*(int(index/N) + 0.5) + np.random.normal(0, std)) for index in xi]
+                y_values = [((length/N)*(index%N + 0.5) + np.random.normal(0, std)) for index in xi]
+                if color is None:
+                    plt.scatter(x_values, y_values, color=np.random.rand(3,1))
+                else: plt.scatter(x_values, y_values, color=color)
     
-    for i,element in enumerate(list_of_trajs):
-        if type(line_width) == list:
-            lw = line_width[i]
-        else:
-            lw = line_width
-            
-        if not discrete[i]:
-            if color is None:
-                plt.plot(element[0],element[1], color=np.random.rand(3,1), linewidth=lw)
-            else: plt.plot(element[0],element[1], color=color, linewidth=lw)
-            
-        else:
-            xi = np.array(element[0])
-            x_values = [((length/N)*(int(index/N) + 0.5) + np.random.normal(0, std)) for index in xi]
-            y_values = [((length/N)*(index%N + 0.5) + np.random.normal(0, std)) for index in xi]
-            if color is None:
-                plt.plot(x_values, y_values, color=np.random.rand(3,1), linewidth=lw)
-            else: plt.plot(x_values, y_values, color=color, linewidth=lw)
+    else: 
+        
+        for i,element in enumerate(list_of_trajs):
+            if type(line_width) == list:
+                lw = line_width[i]
+            else:
+                lw = line_width
+                
+            if not discrete[i]:
+                if color is None:
+                    plt.plot(element[0],element[1], color=np.random.rand(3,1), linewidth=lw)
+                else: plt.plot(element[0],element[1], color=color, linewidth=lw)
+                
+            else:
+                xi = np.array(element[0])
+                x_values = [((length/N)*(int(index/N) + 0.5) + np.random.normal(0, std)) for index in xi]
+                y_values = [((length/N)*(index%N + 0.5) + np.random.normal(0, std)) for index in xi]
+                if color is None:
+                    plt.plot(x_values, y_values, color=np.random.rand(3,1), linewidth=lw)
+                else: plt.plot(x_values, y_values, color=color, linewidth=lw)
 
 
     plt.axis([0, length, 0, length])
@@ -72,7 +97,8 @@ def plot_traj(list_of_trajs, discrete=[False], line_width=0.5, std = 0.3, color 
 
     plt.grid(linewidth = 1,linestyle='--',alpha=0.6)
 
-    plt.colorbar()
+    if not justpoints:
+        plt.colorbar()
 
     plt.annotate('A', xy=(pi/8, pi/8), fontsize = 35, color = 'tomato')
     plt.annotate('B', xy=(5*pi+4*pi/8, 5*pi+3*pi/8), fontsize = 35, color = 'aqua')
