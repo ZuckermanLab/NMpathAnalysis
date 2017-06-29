@@ -132,7 +132,7 @@ def random_markov_matrix(n_states=5, seed=None):
     return normalize_markov_matrix(t_matrix)
 
 
-def is_not_a_tmatrix(t_matrix, accept_null_rows=True):
+def check_tmatrix(t_matrix, accept_null_rows=True):
     '''Check if the given matrix is actually a row-stockastic
     transition matrix, i.e, all the elements are non-negative and
     the rows add to one.
@@ -140,23 +140,26 @@ def is_not_a_tmatrix(t_matrix, accept_null_rows=True):
     to accept rows where all the elements are zero. Those "problematic"
     states are going to be removed later if necessary by clean_tmatrix.
     '''
+    def value_error():
+        raise ValueError("The object given is not a transition matrix")
+
     n_states = len(t_matrix)
     if not (n_states == len(t_matrix[0])):
-        return True
+        value_error()
 
     for index, row in enumerate(t_matrix):
         sum_ = 0.0
         for element in row:
             if element < 0.0:
-                return True
+                value_error()
             sum_ += element
 
         if accept_null_rows:
             if not (np.isclose(sum_, 1.0, atol=1e-6) or sum_ == 0.0):
-                return True
+                value_error()
         else:
             if not np.isclose(sum_, 1.0, atol=1e-6):
-                return True
+                value_error()
 
     return False
 
@@ -204,8 +207,8 @@ def pops_from_tmatrix(transition_matrix):
     output: the solution, p, of K.T p = p where K.T is the transposed
     transition matrix
     '''
-    if is_not_a_tmatrix(transition_matrix):
-        raise ValueError('The matrix given is not a transition matrix')
+
+    check_tmatrix(transition_matrix)
 
     n_states = len(transition_matrix)
 
@@ -264,33 +267,6 @@ def map_to_integers(sequence, mapping_dict=None):
     return new_sequence, mapping_dict
 
 
-def merge_microstates_in_tmatrix(transition_matrix, ms1, ms2):
-    '''Merge two microstates (ms1 and ms2) in the transition matrix, i.e.,
-    returns the transition matrix that we would obtain if the microstates where
-    merged befored the estimation of the transition matrix. The transition
-    matrix is expected to be a square numpy array'''
-
-    p = pops_from_tmatrix(transition_matrix)
-    size = len(transition_matrix)
-    final_tmatrix = np.copy(transition_matrix)
-
-    # sum of the columns with indexes ms1 and ms2
-    # and saved in the index state1.
-    for k in range(size):
-        final_tmatrix[k, ms1] += final_tmatrix[k, ms2]
-
-    # weighted sum of the rows
-    for k in range(size):
-        final_tmatrix[ms1, k] = (p[ms1] * final_tmatrix[ms1, k] +
-                                 p[ms2] * final_tmatrix[ms2, k]) / \
-            (p[ms1] + p[ms2])
-
-    final_tmatrix = np.delete(final_tmatrix, ms2, axis=1)
-    final_tmatrix = np.delete(final_tmatrix, ms2, axis=0)
-
-    return final_tmatrix
-
-
 if __name__ == '__main__':
     # k= np.array([[1,2],[2,3]])
     n_states = 5
@@ -302,12 +278,12 @@ if __name__ == '__main__':
     print('\nOriginal t_matrix:')
     print(T)
 
-    print('\nAfter mergin state 0 and 1:')
-    merged_matrix = merge_microstates_in_tmatrix(T, 0, 1)
-    print(merged_matrix)
+    #print('\nAfter mergin state 0 and 1:')
+    #merged_matrix = merge_microstates_in_tmatrix(T, 0, 1)
+    # print(merged_matrix)
 
-    print('\nSum of each row')
-    print(np.sum(merged_matrix, axis=1))
+    #print('\nSum of each row')
+    #print(np.sum(merged_matrix, axis=1))
 
     print()
     print(mfpt.markov_mfpts(T, [0], [4]))
