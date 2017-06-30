@@ -5,8 +5,9 @@ Created on June 29, 2017
 '''
 import numpy as np
 from auxfunctions import pops_from_tmatrix, check_tmatrix, random_markov_matrix
-from mfpt import mfpts_matrix, min_commute_time
+from mfpt import mfpts_matrix, min_commute_time, _max_commute_time
 import copy
+import operator
 
 
 def merge_microstates_in_tmatrix(transition_matrix, ms1, ms2):
@@ -40,7 +41,8 @@ def merge_microstates_in_tmatrix(transition_matrix, ms1, ms2):
 
 
 def kinetic_clustering_from_tmatrix(transition_matrix, n_clusters=2,
-                                    t_cut=float('inf'), ini_clusters=None):
+                                    t_cut=float('inf'), ini_clusters=None,
+                                    verbose=False):
     """Hierarchical agglomeratice kinetic clustering from the commute matrix
     (MFPTs in both directions). On each step, the matrix is recalculated.
     """
@@ -60,29 +62,54 @@ def kinetic_clustering_from_tmatrix(transition_matrix, n_clusters=2,
         clusters = copy.copy(ini_clusters)
 
     mfpt_M = mfpts_matrix(transition_matrix)
-    min_t, index_i, index_j = min_commute_time(mfpt_M)
+    t_min, i_min, j_min = min_commute_time(mfpt_M)
+    t_max, i_max, j_max = _max_commute_time(mfpt_M)
 
-    print("Number of clusters: ", end=" ")
-    while (min_t < t_cut) and (len(clusters) > n_clusters):
+    if verbose:
+        print("Number of clusters: ", end=" ")
+
+    while (t_min < t_cut) and (len(clusters) > n_clusters):
         # Merge clusters
-        clusters[index_i] += clusters[index_j]
-        del clusters[index_j]
-        print(len(clusters), end=" ")
+        clusters[i_min] += clusters[j_min]
+        del clusters[j_min]
+        if verbose:
+            print(len(clusters), end=" ")
 
         # Merge states in the t_matrix
         new_tmatrix = merge_microstates_in_tmatrix(new_tmatrix,
-                                                   index_i, index_j)
+                                                   i_min, j_min)
 
         # recalculate
         mfpt_M = mfpts_matrix(new_tmatrix)
-        min_t, index_i, index_j = min_commute_time(mfpt_M)
-    print()
+        t_min, i_min, j_min = min_commute_time(mfpt_M)
+        t_max, i_max, j_max = _max_commute_time(mfpt_M)
 
-    return clusters
+    return clusters, t_min, t_max, new_tmatrix
+
+
+def biggest_clusters_indexes(clusters, n_pick=2):
+
+    n_clusters = len(clusters)
+
+    indexes = [i for i in range(n_clusters)]
+    len_cluster = [len(c) for c in clusters]
+
+    len_c_sorted, indexes_sorted = zip(*sorted(zip(len_cluster, indexes),
+                                               key=operator.itemgetter(0),
+                                               reverse=True))
+
+    return indexes_sorted[0:n_pick]
 
 
 if __name__ == "__main__":
     T = random_markov_matrix(20)
 
-    clusters = kinetic_clustering_from_tmatrix(T, 5)
+    clusters, t_min, t_max, new_tmatrix = kinetic_clustering_from_tmatrix(T, 5)
+
+    print(biggest_clusters_indexes(clusters))
+    print(clusters)
+
+    clusters = [[1], [2, 3], [1, 2, 3], [0], [1, 2, 3, 4, 5, 6]]
+
+    print(biggest_clusters_indexes(clusters, n_pick=3))
     print(clusters)
