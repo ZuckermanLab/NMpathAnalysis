@@ -300,9 +300,9 @@ class DiscreteEnsemble(Ensemble):
 
         return count_matrix
 
-    def _mle_transition_matrix(self, n_states):
+    def _mle_transition_matrix(self, n_states, prior_counts=0):
 
-        count_matrix = self._count_matrix(n_states)
+        count_matrix = self._count_matrix(n_states, prior_counts)
 
         transition_matrix = count_matrix.copy()
 
