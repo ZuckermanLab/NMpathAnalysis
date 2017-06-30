@@ -123,6 +123,11 @@ def markov_mfpts(transition_matrix, stateA, stateB):
     return non_markov_mfpts(auxiliar_matrix, stateA, stateB)
 
 
+def markov_commute_time(transition_matrix, stateA, stateB):
+    mfpts = markov_mfpts(transition_matrix, stateA, stateB)
+    return mfpts['mfptAB'] + mfpts['mfptBA']
+
+
 def non_markov_mfpts(nm_transition_matrix, stateA, stateB):
     '''Computes the mean first passage times A->B and B->A where
     from a non-markovian model.
@@ -278,6 +283,33 @@ def min_commute_time(matrix_of_mfpts):
                 index_j = j
 
     return min_ct, index_i, index_j
+
+
+def _max_commute_time(matrix_of_mfpts):
+    """Returns the max commuting time (round trip time) between all pairs
+    of microstates from the matrix of mfpts. It also returns the indexes
+    of the pair of microstates involved"""
+
+    matrix_of_mfpts = np.array(matrix_of_mfpts)
+
+    n_states = len(matrix_of_mfpts)
+    assert(n_states == len(matrix_of_mfpts[0]) and n_states >= 2)
+
+    # Initial values, arbitrary choice
+    index_i = 0
+    index_j = 1
+
+    commute_times = matrix_of_mfpts + matrix_of_mfpts.T
+    max_ct = commute_times[index_i, index_j]
+
+    for i in range(n_states):
+        for j in range(i + 1, n_states):
+            if commute_times[i, j] > max_ct:
+                max_ct = commute_times[i, j]
+                index_i = i
+                index_j = j
+
+    return max_ct, index_i, index_j
 
 
 if __name__ == '__main__':
