@@ -69,15 +69,24 @@ def kinetic_clustering_from_tmatrix(transition_matrix, n_clusters=2,
         print("Number of clusters: ", end=" ")
 
     while (t_min < t_cut) and (len(clusters) > n_clusters):
-        # Merge clusters
-        clusters[i_min] += clusters[j_min]
-        del clusters[j_min]
+
+        # Merging clusters, we are going to merge the smallest
+        # into the biggest but that is not necessary
+        if len(clusters[i_min]) > len(clusters[j_min]):
+            clusters[i_min] += clusters[j_min]
+            del clusters[j_min]
+            new_tmatrix = merge_microstates_in_tmatrix(new_tmatrix,
+                                                       i_min, j_min)
+        else:
+            clusters[j_min] += clusters[i_min]
+            del clusters[i_min]
+            new_tmatrix = merge_microstates_in_tmatrix(new_tmatrix,
+                                                       j_min, i_min)
+
         if verbose:
             print(len(clusters), end=" ")
 
         # Merge states in the t_matrix
-        new_tmatrix = merge_microstates_in_tmatrix(new_tmatrix,
-                                                   i_min, j_min)
 
         # recalculate
         mfpt_M = mfpts_matrix(new_tmatrix)
