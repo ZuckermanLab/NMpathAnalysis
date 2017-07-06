@@ -247,6 +247,30 @@ def pops_from_tmatrix(transition_matrix):
     return ss_solution
 
 
+def pops_from_nm_tmatrix(transition_matrix):
+    '''Computes the populations of the real/physical states from a
+    non-Markovian transtion matrix with shape (2*n_states, 2*n_states)
+    '''
+    check_tmatrix(transition_matrix, accept_null_rows=True)
+
+    size = len(transition_matrix)
+
+    if size % 2 != 0:
+        raise ValueError("The non-Markovian transition matrix has to "
+                         "have an even number of columns/rows")
+
+    n_states = size // 2  # Real/physical microstates
+
+    pops_nm = pops_from_tmatrix(transition_matrix)
+
+    pops = np.zeros(n_states)
+
+    for i in range(n_states):
+        pops[i] = pops_nm[2 * i] + pops_nm[2 * i + 1]
+
+    return pops
+
+
 def map_to_integers(sequence, mapping_dict=None):
     '''Map a sequence of elements to a sequence of integers
     for intance, maps [1, 'a', 1, 'b', 2.2] to [0, 1, 0, 2, 3]
