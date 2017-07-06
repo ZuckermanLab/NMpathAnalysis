@@ -8,7 +8,8 @@ import auxfunctions as aux
 from interval import Interval
 
 
-def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True, n_variables=None):
+def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True,
+                 n_variables=None, lag_time=1):
     """Direct MFPTs calculation (no model involved) by tracing the trajectories.
 
     trajectories:   List of trajectories [traj1, traj2, traj4], each trajectory
@@ -24,10 +25,13 @@ def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True, n_variab
                     states are a list of indexes. However, if the trajectories
                     are not discrete, the states are "intervals" (see Interval
                     class).
+
+    lag_time:       The trajectory is "observed" every lag_time time steps
     """
 
     if (stateA is None) or (stateB is None):
-        raise Exception('The final and initial states have to be defined to compute the MFPT')
+        raise Exception('The final and initial states have '
+                        'to be defined to compute the MFPT')
 
     if not discrete:
         '''
@@ -35,7 +39,8 @@ def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True, n_variab
         is a set of continuous trajectories
         '''
         if n_variables is None:
-            raise Exception('In continuous trajectories the number of variables is needed')
+            raise Exception('In continuous trajectories the number of '
+                            'variables is needed')
 
         stateA = Interval(stateA, n_variables)
         stateB = Interval(stateB, n_variables)
@@ -46,7 +51,8 @@ def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True, n_variab
 
     for traj in trajectories:
         previous_color = "Unknown"
-        for snapshot in traj:
+        for i in range(0, len(traj), lag_time):
+            snapshot = traj[i]
             # state and color determination
             if snapshot in stateA:
                 color = "A"
