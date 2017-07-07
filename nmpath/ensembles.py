@@ -321,11 +321,16 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
 
     """
 
-    def __init__(self, trajectory=None, verbose=False, dtype='int32', discrete=True, stateA=None, stateB=None, **kwargs):
-        super().__init__(trajectory, verbose, dtype, discrete, stateA, stateB, **kwargs)
+    def __init__(self, trajectory=None, verbose=False, dtype='int32',
+                 discrete=True, stateA=None, stateB=None, **kwargs):
+
+        super().__init__(trajectory, verbose, dtype, discrete, stateA,
+                         stateB, **kwargs)
 
     @classmethod
-    def from_transition_matrix(cls, transition_matrix, stateA=None, stateB=None, n_paths=1000, ini_pops=None,  max_iters=1000000000):
+    def from_transition_matrix(cls, transition_matrix, stateA=None,
+                               stateB=None, n_paths=1000, ini_pops=None,
+                               max_iters=1000000000):
         '''
         Construct a path ensemble from a transition matrix
 
