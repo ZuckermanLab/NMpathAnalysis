@@ -4,7 +4,6 @@ Created on Jul 29, 2016
 '''
 import numpy as np
 import operator
-import mfpt
 from copy import deepcopy
 
 
@@ -292,6 +291,7 @@ def map_to_integers(sequence, mapping_dict=None):
 
 
 if __name__ == '__main__':
+    import mfpt
     # k= np.array([[1,2],[2,3]])
     n_states = 5
 
