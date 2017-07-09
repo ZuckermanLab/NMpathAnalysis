@@ -29,6 +29,57 @@ def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True,
     lag_time:       The trajectory is "observed" every lag_time time steps
     """
 
+    passage_timesAB, passage_timesBA = direct_fpts(trajectories, stateA,
+                                                   stateB, discrete,
+                                                   n_variables, lag_time)
+    n_AB = len(passage_timesAB)
+    n_BA = len(passage_timesBA)
+
+    try:
+        mfptAB = float(sum(passage_timesAB)) / n_AB
+        std_err_mfptAB = np.std(passage_timesAB) / np.sqrt(n_AB)
+    except:
+        print('WARNING: No A->B events observed')
+        mfptAB = 'NaN'
+        std_err_mfptAB = 'NaN'
+
+    try:
+        mfptBA = float(sum(passage_timesBA)) / n_BA
+        std_err_mfptBA = np.std(passage_timesBA) / np.sqrt(n_BA)
+    except:
+        print('WARNING: No B->A events observed')
+        mfptBA = 'NaN'
+        std_err_mfptBA = 'NaN'
+
+    kinetics = {'mfptAB': mfptAB, 'std_err_mfptAB': std_err_mfptAB,
+                'mfptBA': mfptBA, 'std_err_mfptBA': std_err_mfptBA}
+
+    print('Number of A->B/B->A  events: {}/{}'.format(n_AB, n_BA))
+
+    return kinetics
+
+
+def direct_fpts(trajectories, stateA=None, stateB=None, discrete=True,
+                n_variables=None, lag_time=1):
+    """Direct FPTs calculation (no model involved) by tracing the trajectories.
+
+    trajectories:   List of trajectories [traj1, traj2, traj4], each trajectory
+                    can be a one dimensional array, e.g.,
+                        [[1,2,1, ...], [0,1,1, ...], ... ]
+                    or a mutidimensional array (matrix) where each column
+                    represents the evolution of a variable.
+
+                    Important: If a single trajectory is given as argument it
+                    also has to be inside a list (e.g. [traj1])
+
+    stateA, stateB: If the trajectories are discrete (discrete = True), both
+                    states are a list of indexes. However, if the trajectories
+                    are not discrete, the states are "intervals" (see Interval
+                    class).
+
+    lag_time:       The trajectory is "observed" every lag_time time steps
+    """
+
     if (stateA is None) or (stateB is None):
         raise Exception('The final and initial states have '
                         'to be defined to compute the MFPT')
@@ -45,8 +96,8 @@ def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True,
         stateA = Interval(stateA, n_variables)
         stateB = Interval(stateB, n_variables)
 
-    passageTimeAB = []
-    passageTimeBA = []
+    passage_timesAB = []
+    passage_timesBA = []
     fpt_counter = 0  # first passage time counter
 
     for traj in trajectories:
@@ -66,36 +117,18 @@ def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True,
                 fpt_counter += 1
 
             if previous_color == "A" and color == "B":
-                passageTimeAB.append(fpt_counter)
+                passage_timesAB.append(fpt_counter)
                 fpt_counter = 0
             elif previous_color == "B" and color == "A":
-                passageTimeBA.append(fpt_counter)
+                passage_timesBA.append(fpt_counter)
                 fpt_counter = 0
-            elif previous_color == "Unknown" and (color == "A" or color == "B"):
+            elif previous_color == "Unknown" and (color == "A" or
+                                                  color == "B"):
                 fpt_counter = 0
 
             previous_color = color
 
-    try:
-        mfptAB = float(sum(passageTimeAB)) / len(passageTimeAB)
-        std_err_mfptAB = np.std(passageTimeAB) / np.sqrt(len(passageTimeAB))
-    except:
-        print('WARNING: No A->B events observed')
-        mfptAB = 'NaN'
-        std_err_mfptAB = 'NaN'
-
-    try:
-        mfptBA = float(sum(passageTimeBA)) / len(passageTimeBA)
-        std_err_mfptBA = np.std(passageTimeBA) / np.sqrt(len(passageTimeBA))
-    except:
-        print('WARNING: No B->A events observed')
-        mfptBA = 'NaN'
-        std_err_mfptBA = 'NaN'
-
-    kinetics = {'mfptAB': mfptAB, 'std_err_mfptAB': std_err_mfptAB,
-                'mfptBA': mfptBA, 'std_err_mfptBA': std_err_mfptBA}
-
-    return kinetics
+    return passage_timesAB, passage_timesBA
 
 
 def markov_mfpts(transition_matrix, stateA, stateB):
@@ -193,15 +226,15 @@ def directional_mfpt(transition_matrix, stateA, stateB, ini_probs=None):
     t_matrix = deepcopy(transition_matrix)
 
     ini_state = list(stateA)
-    final_state = sorted(list(stateB))
+    f_state = sorted(list(stateB))
 
     assert(lenA == len(ini_probs))
 
     for i in range(lenB - 1, -1, -1):
-        t_matrix = np.delete(t_matrix, final_state[i], axis=1)
-        t_matrix = np.delete(t_matrix, final_state[i], axis=0)
+        t_matrix = np.delete(t_matrix, f_state[i], axis=1)
+        t_matrix = np.delete(t_matrix, f_state[i], axis=0)
         for j in range(lenA):
-            if final_state[i] < ini_state[j]:
+            if f_state[i] < ini_state[j]:
                 ini_state[j] = ini_state[j] - 1
 
     new_size = len(t_matrix)
@@ -291,7 +324,7 @@ def min_commute_time(matrix_of_mfpts):
     return min_ct, index_i, index_j
 
 
-def _max_commute_time(matrix_of_mfpts):
+def max_commute_time(matrix_of_mfpts):
     """Returns the max commuting time (round trip time) between all pairs
     of microstates from the matrix of mfpts. It also returns the indexes
     of the pair of microstates involved"""
@@ -316,6 +349,58 @@ def _max_commute_time(matrix_of_mfpts):
                 index_j = j
 
     return max_ct, index_i, index_j
+
+
+def fpt_distribution(t_matrix, initial_state, final_state,
+                     initial_distrib, max_n_lags=500):
+
+    # copy everything since they are going to be modified
+    tmatrix = np.copy(t_matrix)
+    ini_state = list(initial_state)
+    f_state = sorted(list(final_state))
+
+    assert(len(ini_state) == len(initial_distrib))
+
+    tmatrix[:, f_state[0]] = np.sum(tmatrix[:, f_state], axis=1)
+
+    for i in range(len(f_state) - 1, 0, -1):
+        tmatrix = np.delete(tmatrix, f_state[i], axis=1)
+        tmatrix = np.delete(tmatrix, f_state[i], axis=0)
+        for j in range(len(ini_state)):
+            if f_state[i] < ini_state[j]:
+                ini_state[j] = ini_state[j] - 1
+
+    f_state = f_state[0]
+    new_n_states = len(tmatrix)
+    list_of_pdfs = np.empty((len(ini_state), max_n_lags), dtype=np.float64)
+    prevFmatrix = np.empty_like(tmatrix)
+
+    for istateIndex in range(len(ini_state)):
+        prevFmatrix = tmatrix.copy()
+        # prevFmatrix[:] = tmatrix[:]
+        Fmatrix = np.zeros((new_n_states, new_n_states))
+        list_of_pdfs[istateIndex, 0] = tmatrix[ini_state[istateIndex], f_state]
+
+        _calc_fmatrix(Fmatrix, tmatrix, prevFmatrix, list_of_pdfs,
+                      max_n_lags, ini_state, istateIndex, f_state)
+
+    sum_ = np.sum(initial_distrib)
+    initial_distrib = np.array(initial_distrib)
+
+    density = np.sum(initial_distrib[:, None] * list_of_pdfs, axis=0) / sum_
+
+    return density
+
+
+def _calc_fmatrix(Fmatrix, tmatrix, prevFmatrix, list_of_pdfs,
+                  max_n_lags, ini_state, istateIndex, f_state):
+    for time in range(1, max_n_lags):
+        Fmatrix = np.dot(tmatrix,
+                         prevFmatrix - np.diag(np.diag(prevFmatrix)))
+
+        list_of_pdfs[istateIndex, time] = \
+            Fmatrix[ini_state[istateIndex], f_state]
+        prevFmatrix = Fmatrix
 
 
 if __name__ == '__main__':
