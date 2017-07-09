@@ -290,6 +290,37 @@ def map_to_integers(sequence, mapping_dict=None):
     return new_sequence, mapping_dict
 
 
+def pseudo_nm_tmatrix(markovian_tmatrix, stateA, stateB):
+    '''Obtain a pseudo non-Markovian transition matrix from a Markovian
+    transiton matrix. The pseudo Markovian matrix has a shape of
+    (2 n_states, 2 n_states)
+    '''
+
+    check_tmatrix(markovian_tmatrix)
+    n_states = len(markovian_tmatrix)
+
+    # pseudo non-Markovian transition matrix
+    p_nm_tmatrix = np.zeros((2 * n_states, 2 * n_states))
+
+    for i in range(2 * n_states):
+        for j in range(2 * n_states):
+            p_nm_tmatrix[i, j] = markovian_tmatrix[i // 2, j // 2]
+
+    for i in range(n_states):
+        for j in range(n_states):
+            if (i in stateB) or (j in stateB):
+                p_nm_tmatrix[2 * i, 2 * j] = 0.0
+            if (i in stateA) or (j in stateA):
+                p_nm_tmatrix[2 * i + 1, 2 * j + 1] = 0.0
+            if (not (j in stateA)) or (i in stateA):
+                p_nm_tmatrix[2 * i + 1, 2 * j] = 0.0
+            if (not (j in stateB)) or (i in stateB):
+                p_nm_tmatrix[2 * i, 2 * j + 1] = 0.0
+
+    check_tmatrix(p_nm_tmatrix)  # just in case
+    return p_nm_tmatrix
+
+
 if __name__ == '__main__':
     import mfpt
     # k= np.array([[1,2],[2,3]])
@@ -302,12 +333,12 @@ if __name__ == '__main__':
     print('\nOriginal t_matrix:')
     print(T)
 
-    #print('\nAfter mergin state 0 and 1:')
-    #merged_matrix = merge_microstates_in_tmatrix(T, 0, 1)
+    # print('\nAfter mergin state 0 and 1:')
+    # merged_matrix = merge_microstates_in_tmatrix(T, 0, 1)
     # print(merged_matrix)
 
-    #print('\nSum of each row')
-    #print(np.sum(merged_matrix, axis=1))
+    # print('\nSum of each row')
+    # print(np.sum(merged_matrix, axis=1))
 
     print()
     print(mfpt.markov_mfpts(T, [0], [4]))
