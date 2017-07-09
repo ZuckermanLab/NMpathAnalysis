@@ -5,11 +5,11 @@ from copy import deepcopy
 import networkx as nx
 from math import log
 
-from nmpath.interval import Interval
-from nmpath.auxfunctions import get_shape, weighted_choice
-from nmpath.auxfunctions import reverse_sort_lists
-from nmpath.mfpt import directional_mfpt
-from nmpath.mfpt import direct_mfpts
+from interval import Interval
+from auxfunctions import get_shape, weighted_choice
+from auxfunctions import reverse_sort_lists
+from mfpt import directional_mfpt
+from mfpt import direct_mfpts
 
 
 class Ensemble:
@@ -228,9 +228,9 @@ class DiscreteEnsemble(Ensemble):
     Discrete trajectory
     '''
 
-    def __init__(self, trajectory=None, verbose=False,
+    def __init__(self, trajectories=None, verbose=False,
                  dtype='int32', discrete=True, **kwargs):
-        super().__init__(trajectory, verbose, dtype,
+        super().__init__(trajectories, verbose, dtype,
                          discrete, **kwargs)
         if (self.n_variables != 1) and (self.n_variables != 0):
             raise Exception(
@@ -241,10 +241,12 @@ class DiscreteEnsemble(Ensemble):
     @classmethod
     def from_ensemble(cls, ens, map_function=None, dtype='int32'):
         '''
-        Build a DiscreteEnsemble from an ensemble object or a single trajectory
+        Build a DiscreteEnsemble from an ensemble object or a set of
+        trajectories
         '''
+        # TODO: Check the case when ens is a list of trajs
         if map_function is None:
-            raise Exception('A map function has to be given as argument')
+            raise ValueError('A map function has to be given as argument')
 
         discrete_trajs_list = []
 
@@ -257,13 +259,13 @@ class DiscreteEnsemble(Ensemble):
                 discrete_trajs_list.append(d_traj)
             return cls(discrete_trajs_list)
         else:
-            # it is a single trajectory or array
+            # it is a list of trajectories
             d_traj = []
-            for snapshot in ens:
+            for traj in ens:
                 d_traj += [map_function(snapshot)]
             d_traj = np.array(d_traj, dtype=dtype)
 
-            return cls(d_traj)
+            return cls([d_traj])
 
     @classmethod
     def from_transition_matrix(cls, transition_matrix, sim_length=None, initial_state=0):
@@ -321,10 +323,10 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
 
     """
 
-    def __init__(self, trajectory=None, verbose=False, dtype='int32',
+    def __init__(self, trajectories=None, verbose=False, dtype='int32',
                  discrete=True, stateA=None, stateB=None, **kwargs):
 
-        super().__init__(trajectory, verbose, dtype, discrete, stateA,
+        super().__init__(trajectories, verbose, dtype, discrete, stateA,
                          stateB, **kwargs)
 
     @classmethod
@@ -385,34 +387,41 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
     def from_ensemble(cls, ensemble, stateA, stateB, map_function=None):
         if map_function is None:
             raise Exception(
-                'The mapping function has to be specified, if you are sure you do not want any mapping use: map_function = identity_mapper')
+                'The mapping function has to be specified, if you are sure'
+                'you do not want any mapping use: '
+                'map_function = identity_mapper')
         trajs = PathEnsemble.from_ensemble(
             ensemble, stateA, stateB, map_function, discrete=True, dtype='int32').trajectories
         return cls(trajs, stateA=stateA, stateB=stateB)
 
-    def fundamental_sequences(self, transition_matrix):
+    def fundamental_sequences(self, transition_matrix=None, symmetric=True):
         '''
         Divide/classify the path ensemble into fundamental sequences
         '''
 
         if transition_matrix is None:
             try:
-                transtion_matrix = self.transition_matrix
+                transition_matrix = self.transition_matrix
             except:
                 raise Exception('Transition matrix is not yet defined')
 
         fundamental_seqs = []
 
         for path in self.trajectories:
-            cmatrix = self.connectivity_matrix(path, transition_matrix)
+            if symmetric:
+                cmatrix = self.connectivity_matrix(path, transition_matrix
+                                                   * transition_matrix.T)
+            else:
+                cmatrix = self.connectivity_matrix(path, transition_matrix)
+
             path_graph = self.graph_from_matrix(cmatrix)
             shortest_path = nx.dijkstra_path(path_graph, path[0], path[-1], 'distance')
             fundamental_seqs.append(shortest_path)
 
         return fundamental_seqs
 
-    def weighted_fundamental_sequences(self, transition_matrix):
-        fs_list = self.fundamental_sequences(transition_matrix)
+    def weighted_fundamental_sequences(self, transition_matrix, symmetric=True):
+        fs_list = self.fundamental_sequences(transition_matrix, symmetric)
         element_count = {}
         count = 0
         for element in fs_list:
@@ -429,8 +438,8 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
             new_fs_list.append(key)
             weights.append(value / float(count))
 
-        reversed_sorted_weights, reversed_sorted_new_fs_list = reverse_sort_lists(
-            weights, new_fs_list)
+        reversed_sorted_weights, reversed_sorted_new_fs_list = \
+            reverse_sort_lists(weights, new_fs_list)
 
         return reversed_sorted_new_fs_list, reversed_sorted_weights
 
