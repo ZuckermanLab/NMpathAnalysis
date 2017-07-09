@@ -77,11 +77,9 @@ def plot_traj(list_of_trajs, discrete=[False], line_width=0.5, std = 0.3, color 
 
     plt.grid(linewidth = 1,linestyle='--',alpha=0.6)
 
-    if not justpoints:
-        plt.colorbar()
-
     plt.annotate('A', xy=(pi/8, pi/8), fontsize = 35, color = 'tomato')
     plt.annotate('B', xy=(5*pi+4*pi/8, 5*pi+3*pi/8), fontsize = 35, color = 'aqua')
+    plt.colorbar()
 
     plt.show()
     
