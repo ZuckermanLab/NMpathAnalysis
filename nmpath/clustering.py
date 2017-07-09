@@ -5,7 +5,7 @@ Created on June 29, 2017
 '''
 import numpy as np
 from auxfunctions import pops_from_tmatrix, check_tmatrix, random_markov_matrix
-from mfpt import mfpts_matrix, min_commute_time, _max_commute_time
+from mfpt import mfpts_matrix, min_commute_time, max_commute_time
 import copy
 import operator
 
@@ -63,7 +63,7 @@ def kinetic_clustering_from_tmatrix(transition_matrix, n_clusters=2,
 
     mfpt_M = mfpts_matrix(transition_matrix)
     t_min, i_min, j_min = min_commute_time(mfpt_M)
-    t_max, i_max, j_max = _max_commute_time(mfpt_M)
+    t_max, i_max, j_max = max_commute_time(mfpt_M)
 
     if verbose:
         print("Number of clusters: ", end=" ")
@@ -91,7 +91,7 @@ def kinetic_clustering_from_tmatrix(transition_matrix, n_clusters=2,
         # recalculate
         mfpt_M = mfpts_matrix(new_tmatrix)
         t_min, i_min, j_min = min_commute_time(mfpt_M)
-        t_max, i_max, j_max = _max_commute_time(mfpt_M)
+        t_max, i_max, j_max = max_commute_time(mfpt_M)
 
     return clusters, t_min, t_max, new_tmatrix
 
