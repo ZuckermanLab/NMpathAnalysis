@@ -5,7 +5,7 @@ Created on Aug 8, 2016
 '''
 
 from numbers import Number
-from nmpath.auxfunctions import euclidean_distance
+from auxfunctions import euclidean_distance
 
 
 def rectilinear_mapper(bb):
