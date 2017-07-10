@@ -10,8 +10,12 @@ from interval import Interval
 
 def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True,
                  n_variables=None, lag_time=1):
-    """Direct MFPTs calculation (no model involved) by tracing the trajectories.
+    """Empirical mean first passage times (MFPTs) calculation (no model
+    involved) by tracing the trajectories. Notice the diference between
+    notation between FPTs and MFPTs.
 
+    Parameters:
+    -----------
     trajectories:   List of trajectories [traj1, traj2, traj4], each trajectory
                     can be a one dimensional array, e.g.,
                         [[1,2,1, ...], [0,1,1, ...], ... ]
@@ -21,12 +25,32 @@ def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True,
                     Important: If a single trajectory is given as argument it
                     also has to be inside a list (e.g. [traj1])
 
-    stateA, stateB: If the trajectories are discrete (discrete = True), both
+    stateA, stateB: List of integers
+                    If the trajectories are discrete (discrete = True), both
                     states are a list of indexes. However, if the trajectories
-                    are not discrete, the states are "intervals" (see Interval
-                    class).
+                    are not discrete, the states are "interval" objects
+                    (see Interval class).
 
-    lag_time:       The trajectory is "observed" every lag_time time steps
+    lag_time:       integer
+                    Lag time used, the trajectory is "observed" every lag_time
+                    time steps
+
+    discrete:       boolean
+                    False when the trajectories are are not discrete. In that
+                    case the macrostates stateA and stateB are considered
+                    interval objects.
+
+    n_variables:    integer
+                    If the trajectory is space continuous,the number of
+                    variables/dimensions is needed. In this case every
+                    trajectory inside "trajectories" should have the same
+                    number of dimensions.
+
+    Returns
+    -------
+    A dictionary with the keys: 'mfptAB', 'std_err_mfptAB', 'mfptBA',
+    'std_err_mfptBA' and the corresponding values. Those values are already
+    multiplied by the lag_time used (not the physical units).
     """
 
     passage_timesAB, passage_timesBA = direct_fpts(trajectories, stateA,
@@ -61,8 +85,12 @@ def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True,
 
 def direct_fpts(trajectories, stateA=None, stateB=None, discrete=True,
                 n_variables=None, lag_time=1):
-    """Direct FPTs calculation (no model involved) by tracing the trajectories.
+    """Empirical first passage times (FPTs) calculation (no model involved)
+    by tracing the trajectories. IMPORTANT: Notice the diference in notation
+    between FPTs and MFPTs.
 
+    Parameters:
+    -----------
     trajectories:   List of trajectories [traj1, traj2, traj4], each trajectory
                     can be a one dimensional array, e.g.,
                         [[1,2,1, ...], [0,1,1, ...], ... ]
@@ -72,12 +100,32 @@ def direct_fpts(trajectories, stateA=None, stateB=None, discrete=True,
                     Important: If a single trajectory is given as argument it
                     also has to be inside a list (e.g. [traj1])
 
-    stateA, stateB: If the trajectories are discrete (discrete = True), both
+    stateA, stateB: List of integers
+                    If the trajectories are discrete (discrete = True), both
                     states are a list of indexes. However, if the trajectories
-                    are not discrete, the states are "intervals" (see Interval
-                    class).
+                    are not discrete, the states are "interval" objects
+                    (see Interval class).
 
-    lag_time:       The trajectory is "observed" every lag_time time steps
+    lag_time:       integer
+                    Lag time used, the trajectory is "observed" every lag_time
+                    time steps
+
+    discrete:       boolean
+                    False when the trajectories are are not discrete. In that
+                    case the macrostates stateA and stateB are considered
+                    interval objects.
+
+    n_variables:    integer
+                    If the trajectory is space continuous,the number of
+                    variables/dimensions is needed. In this case every
+                    trajectory inside "trajectories" should have the same
+                    number of dimensions.
+
+    Returns
+    -------
+    A tuple of two 1D-ndarray (array1, array2), the first one contains the
+    observed first passage times A->B and the second one the FPTs B->A. Those
+    values are already multiplied by the lag_time used (not the physical units)
     """
 
     if (stateA is None) or (stateB is None):
@@ -128,12 +176,17 @@ def direct_fpts(trajectories, stateA=None, stateB=None, discrete=True,
 
             previous_color = color
 
+    passage_timesAB = np.array(passage_timesAB) * lag_time
+    passage_timesBA = np.array(passage_timesBA) * lag_time
+
     return passage_timesAB, passage_timesBA
 
 
-def markov_mfpts(transition_matrix, stateA, stateB):
-    '''Computes the mean first passage times A->B and B->A
-    from a markov model. The target state is not absorbing (no ss)
+def markov_mfpts(transition_matrix, stateA, stateB, lag_time=1):
+    '''Computes mean first passage times in both directions A->B and B->A
+    from a markov model. The mfpts computed this way are directly comparable
+    with the values obtained by a long back and forth simulation between the
+    tar
     '''
     transition_matrix = np.array(transition_matrix)
 
@@ -159,21 +212,22 @@ def markov_mfpts(transition_matrix, stateA, stateB):
 
     # Is going to return a MARKOVIAN mfpt since the auxiliar
     # matrix was build from a pure markovian matrix
-    return non_markov_mfpts(auxiliar_matrix, stateA, stateB)
+    return non_markov_mfpts(auxiliar_matrix, stateA, stateB, lag_time)
 
 
-def markov_commute_time(transition_matrix, stateA, stateB):
-    mfpts = markov_mfpts(transition_matrix, stateA, stateB)
+def markov_commute_time(transition_matrix, stateA, stateB, lag_time=1):
+    mfpts = markov_mfpts(transition_matrix, stateA, stateB, lag_time)
     return mfpts['mfptAB'] + mfpts['mfptBA']
 
 
-def non_markov_mfpts(nm_transition_matrix, stateA, stateB):
+def non_markov_mfpts(nm_transition_matrix, stateA, stateB, lag_time=1):
     '''Computes the mean first passage times A->B and B->A where
     from a non-markovian model.
     The shape of the transition matrix should be (2*n_states, 2*n_states)
     '''
+    aux.check_tmatrix(nm_transition_matrix)
+
     labeled_pops = aux.pops_from_tmatrix(nm_transition_matrix)
-    # labeled_pops = solveMarkovMatrix(nm_transition_matrix)
 
     n_states = len(labeled_pops) // 2
 
@@ -209,10 +263,14 @@ def non_markov_mfpts(nm_transition_matrix, stateA, stateB):
     else:
         mfptBA = pop_colorB / fluxBA
 
+    mfptAB *= lag_time
+    mfptBA *= lag_time
+
     return dict(mfptAB=mfptAB, mfptBA=mfptBA)
 
 
-def directional_mfpt(transition_matrix, stateA, stateB, ini_probs=None):
+def directional_mfpt(transition_matrix, stateA, stateB,
+                     ini_probs=None, lag_time=1):
     '''Computes the mean-first passage in a single direction A->B
     using a recursive procedure. This method is useful when there is no
     B->A ensemble, for instance when B is absorbing.
@@ -252,10 +310,10 @@ def directional_mfpt(transition_matrix, stateA, stateB, ini_probs=None):
         mfptAB += ini_probs[i] * m[k]
     mfptAB = mfptAB / sum(ini_probs)
 
-    return mfptAB
+    return mfptAB * lag_time
 
 
-def mfpts_to_target_microstate(transition_matrix, target):
+def mfpts_to_target_microstate(transition_matrix, target, lag_time=1):
     '''Computes all the mean-first passage to a target microstate (k).
     Returns a list where the i-element is mfpt(i->k). This function is
     useful to compute the mfpt matrix.
@@ -279,10 +337,10 @@ def mfpts_to_target_microstate(transition_matrix, target):
     m = np.dot(np.linalg.inv(I - t_matrix), c)
     m = np.insert(m, target, 0.0)
 
-    return m
+    return m * lag_time
 
 
-def mfpts_matrix(transition_matrix):
+def mfpts_matrix(transition_matrix, lag_time=1):
     '''Returns the MFPT matrix, i.e., the matrix where the ij-element is the
     MFPT(i->j)
     '''
@@ -291,7 +349,8 @@ def mfpts_matrix(transition_matrix):
     temp_values = []
 
     for i in range(size):
-        temp_values.append(mfpts_to_target_microstate(transition_matrix, i))
+        temp_values.append(mfpts_to_target_microstate(transition_matrix,
+                                                      i, lag_time))
 
     mfpt_m = np.array(temp_values).T  # to nummpy array and transposed
     return mfpt_m
@@ -352,7 +411,7 @@ def max_commute_time(matrix_of_mfpts):
 
 
 def fpt_distribution(t_matrix, initial_state, final_state,
-                     initial_distrib, max_n_lags=500):
+                     initial_distrib, max_n_lags=500, lag_time=1):
 
     # copy everything since they are going to be modified
     tmatrix = np.copy(t_matrix)
@@ -389,7 +448,7 @@ def fpt_distribution(t_matrix, initial_state, final_state,
 
     density = np.sum(initial_distrib[:, None] * list_of_pdfs, axis=0) / sum_
 
-    return density
+    return density / lag_time
 
 
 def _calc_fmatrix(Fmatrix, tmatrix, prevFmatrix, list_of_pdfs,
