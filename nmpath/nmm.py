@@ -8,6 +8,7 @@ from auxfunctions import map_to_integers, normalize_markov_matrix
 from auxfunctions import pops_from_nm_tmatrix, pops_from_tmatrix
 from auxfunctions import pseudo_nm_tmatrix
 from mfpt import direct_mfpts, non_markov_mfpts, fpt_distribution
+from mfpt import direct_fpts
 from ensembles import DiscreteEnsemble
 
 
@@ -53,6 +54,7 @@ class NonMarkovModel:
 
     def __init__(self, trajectories, stateA, stateB,
                  lag_time=1, clean_traj=False, sliding_window=True, **kwargs):
+
         self.lag_time = lag_time
         self.trajectories = trajectories
         self.stateA = stateA
@@ -141,10 +143,16 @@ class NonMarkovModel:
         self.nm_cmatrix = nm_cmatrix
 
     def mfpts(self):
-        return non_markov_mfpts(self.nm_tmatrix, self.stateA, self.stateB)
+        return non_markov_mfpts(self.nm_tmatrix, self.stateA, self.stateB,
+                                lag_time=self.lag_time)
 
     def empirical_mfpts(self):
-        return direct_mfpts(self.trajectories, self.stateA, self.stateB)
+        return direct_mfpts(self.trajectories, self.stateA, self.stateB,
+                            lag_time=self.lag_time)
+
+    def empirical_fpts(self):
+        return direct_fpts(self.trajectories, self.stateA, self.stateB,
+                           lag_time=self.lag_time)
 
     def populations(self):
         return pops_from_nm_tmatrix(self.nm_tmatrix)
@@ -207,15 +215,17 @@ class NonMarkovModel:
                         labeled_pops[i] * self.nm_tmatrix[i, j]
         return distrib_on_A
 
-    def fpt_distrib_AB(self):
+    def fpt_distrib_AB(self, max_n_lags=1000):
         return fpt_distribution(self.tmatrixAB(), self.stateA,
                                 self.stateB,
-                                ini_pops=self.fluxBA_distribution_on_A())
+                                initial_distrib=self.fluxBA_distribution_on_A(),
+                                max_n_lags=max_n_lags, lag_time=self.lag_time)
 
-    def fpt_distrib_BA(self):
+    def fpt_distrib_BA(self, max_n_lags=1000):
         return fpt_distribution(self.tmatrixBA(), self.stateB,
                                 self.stateA,
-                                ini_pops=self.fluxAB_distribution_on_B())
+                                initial_distrib=self.fluxAB_distribution_on_B(),
+                                max_n_lags=max_n_lags, lag_time=self.lag_time)
 
 
 class MarkovPlusColorModel(NonMarkovModel, DiscreteEnsemble):
