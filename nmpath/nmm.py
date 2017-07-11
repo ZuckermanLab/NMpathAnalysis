@@ -96,46 +96,39 @@ class NonMarkovModel:
         '''
         # Non-Markovian count matrix
         nm_cmatrix = np.zeros((2 * self.n_states, 2 * self.n_states))
-        start = self.lag_time
-        step = 1
+
+        lag = self.lag_time
 
         if not self.sliding_window:
-            step = self.lag_time
+            step = lag
+        else:
+            step = 1
 
         for traj in self.trajectories:
+            for start in range(lag, 2 * lag, step):
+                prev_color = None
 
-            prev_color = None
+                for i in range(start, len(traj), lag):
 
-            for i in range(start, len(traj), step):
-                curr_microstate = traj[i]
-                prev_microstate = traj[i - self.lag_time]
-                # Macro state determination
-                if curr_microstate in self.stateA:
-                    state = "A"
-                elif curr_microstate in self.stateB:
-                    state = "B"
-                else:
-                    state = None
+                    # Color determination
+                    if traj[i] in self.stateA:
+                        color = "A"
+                    elif traj[i] in self.stateB:
+                        color = "B"
+                    else:
+                        color = prev_color
 
-                # Color determination
-                if state == "A":
-                    color = "A"
-                elif state == "B":
-                    color = "B"
-                else:
-                    color = prev_color
+                    # Count matrix for the given lag time
+                    if prev_color == "A" and color == "B":
+                        nm_cmatrix[2 * traj[i - lag], 2 * traj[i] + 1] += 1.0
+                    elif prev_color == "B" and color == "A":
+                        nm_cmatrix[2 * traj[i - lag] + 1, 2 * traj[i]] += 1.0
+                    elif prev_color == "A" and color == "A":
+                        nm_cmatrix[2 * traj[i - lag], 2 * traj[i]] += 1.0
+                    elif prev_color == "B" and color == "B":
+                        nm_cmatrix[2 * traj[i - lag] + 1, 2 * traj[i] + 1] += 1.0
 
-                # Count matrix for the given lag time
-                if prev_color == "A" and color == "B":
-                    nm_cmatrix[2 * prev_microstate, 2 * curr_microstate + 1] += 1.0
-                elif prev_color == "B" and color == "A":
-                    nm_cmatrix[2 * prev_microstate + 1, 2 * curr_microstate] += 1.0
-                elif prev_color == "A" and color == "A":
-                    nm_cmatrix[2 * prev_microstate, 2 * curr_microstate] += 1.0
-                elif prev_color == "B" and color == "B":
-                    nm_cmatrix[2 * prev_microstate + 1, 2 * curr_microstate + 1] += 1.0
-
-                prev_color = color
+                    prev_color = color
 
         nm_tmatrix = normalize_markov_matrix(nm_cmatrix)
 
