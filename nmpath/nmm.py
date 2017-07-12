@@ -8,8 +8,9 @@ from auxfunctions import map_to_integers, normalize_markov_matrix
 from auxfunctions import pops_from_nm_tmatrix, pops_from_tmatrix
 from auxfunctions import pseudo_nm_tmatrix
 from mfpt import direct_mfpts, non_markov_mfpts, fpt_distribution
-from mfpt import direct_fpts
+from mfpt import direct_fpts, markov_mfpts
 from ensembles import DiscreteEnsemble
+from msmtools.estimation import transition_matrix
 
 
 class NonMarkovModel:
@@ -53,15 +54,18 @@ class NonMarkovModel:
     '''
 
     def __init__(self, trajectories, stateA, stateB,
-                 lag_time=1, clean_traj=False, sliding_window=True, **kwargs):
+                 lag_time=1, clean_traj=False, sliding_window=True,
+                 reversible=True, markovian=False, **kwargs):
 
-        self.lag_time = lag_time
+        self._lag_time = lag_time
         self.trajectories = trajectories
         self.stateA = stateA
         self.stateB = stateB
         self.sliding_window = sliding_window
+        self.reversible = reversible
+        self.markovian = markovian
 
-        if (self.lag_time < 1) or (int(self.lag_time) != int(self.lag_time)):
+        if (self._lag_time < 1) or (int(self._lag_time) != int(self._lag_time)):
             raise ValueError('The lag time should be an integer \
             greater than 1')
 
@@ -92,12 +96,15 @@ class NonMarkovModel:
         self.seq_map = seq_map
 
     def fit(self):
-        '''Fits the the non markovian model from a list of sequences
+        '''Fits the the non-Markovian model from a list of sequences
         '''
         # Non-Markovian count matrix
         nm_cmatrix = np.zeros((2 * self.n_states, 2 * self.n_states))
 
-        lag = self.lag_time
+        # Markovian count matrix
+        markov_cmatrix = np.zeros((self.n_states, self.n_states))
+
+        lag = self._lag_time
 
         if not self.sliding_window:
             step = lag
@@ -130,27 +137,70 @@ class NonMarkovModel:
 
                     prev_color = color
 
+                    markov_cmatrix[traj[i - lag], traj[i]] += 1.0
+
         nm_tmatrix = normalize_markov_matrix(nm_cmatrix)
+        markov_tmatrix = transition_matrix(markov_cmatrix, self.reversible)
 
         self.nm_tmatrix = nm_tmatrix
         self.nm_cmatrix = nm_cmatrix
+        self.markov_cmatrix = markov_cmatrix
+        self.markov_tmatrix = markov_tmatrix
+
+    @property
+    def lag_time(self):
+        return self._lag_time
+
+    @lag_time.setter
+    def lag_time(self, lag_time):
+        self._lag_time = lag_time
+        self.fit()
 
     def mfpts(self):
-        return non_markov_mfpts(self.nm_tmatrix, self.stateA, self.stateB,
-                                lag_time=self.lag_time)
+        if self.markovian:
+            return markov_mfpts(self.markov_tmatrix, self.stateA, self.stateB,
+                                lag_time=self._lag_time)
+        else:
+            return non_markov_mfpts(self.nm_tmatrix, self.stateA, self.stateB,
+                                    lag_time=self._lag_time)
 
     def empirical_mfpts(self):
         return direct_mfpts(self.trajectories, self.stateA, self.stateB,
-                            lag_time=self.lag_time)
+                            lag_time=self._lag_time)
 
     def empirical_fpts(self):
         return direct_fpts(self.trajectories, self.stateA, self.stateB,
-                           lag_time=self.lag_time)
+                           lag_time=self._lag_time)
 
     def populations(self):
-        return pops_from_nm_tmatrix(self.nm_tmatrix)
+        # In this case the results are going to be the same
+        if self.markovian:
+            return pops_from_tmatrix(self.markov_tmatrix)
+        else:
+            return pops_from_nm_tmatrix(self.nm_tmatrix)
+
+    @property
+    def popA(self):
+        pop_A = 0
+        pops = self.populations()
+        for i, p in enumerate(pops):
+            if i in self.stateA:
+                pop_A += p
+        return pop_A
+
+    @property
+    def popB(self):
+        pop_B = 0
+        pops = self.populations()
+        for i, p in enumerate(pops):
+            if i in self.stateB:
+                pop_B += p
+        return pop_B
 
     def tmatrixAB(self):
+        if self.markovian:
+            return self.markov_tmatrix
+
         matrixAB = []
         for i in range(0, 2 * self.n_states, 2):
             for j in range(0, 2 * self.n_states, 2):
@@ -170,6 +220,9 @@ class NonMarkovModel:
         return matrixAB
 
     def tmatrixBA(self):
+        if self.markovian:
+            return self.markov_tmatrix
+
         matrixBA = []
         for i in range(1, 2 * self.n_states + 1, 2):
             for j in range(1, 2 * self.n_states + 1, 2):
@@ -189,36 +242,48 @@ class NonMarkovModel:
         return matrixBA
 
     def fluxAB_distribution_on_B(self):
+        if self.markovian:
+            t_matrix = pseudo_nm_tmatrix(self.markov_tmatrix,
+                                         self.stateA, self.stateB)
+        else:
+            t_matrix = self.nm_tmatrix
+
         distrib_on_B = np.zeros(len(self.stateB))
-        labeled_pops = pops_from_tmatrix(self.nm_tmatrix)
+        labeled_pops = pops_from_tmatrix(t_matrix)
         for i in range(0, 2 * self.n_states, 2):
             for j in range(2 * self.n_states):
                 if j // 2 in self.stateB:
                     distrib_on_B[self.stateB.index(j // 2)] += \
-                        labeled_pops[i] * self.nm_tmatrix[i, j]
+                        labeled_pops[i] * t_matrix[i, j]
         return distrib_on_B
 
     def fluxBA_distribution_on_A(self):
+        if self.markovian:
+            t_matrix = pseudo_nm_tmatrix(self.markov_tmatrix,
+                                         self.stateA, self.stateB)
+        else:
+            t_matrix = self.nm_tmatrix
+
         distrib_on_A = np.zeros(len(self.stateA))
-        labeled_pops = pops_from_tmatrix(self.nm_tmatrix)
+        labeled_pops = pops_from_tmatrix(t_matrix)
         for i in range(1, 2 * self.n_states + 1, 2):
             for j in range(2 * self.n_states):
                 if j // 2 in self.stateA:
                     distrib_on_A[self.stateA.index(j // 2)] += \
-                        labeled_pops[i] * self.nm_tmatrix[i, j]
+                        labeled_pops[i] * t_matrix[i, j]
         return distrib_on_A
 
-    def fpt_distrib_AB(self, max_n_lags=1000):
-        return fpt_distribution(self.tmatrixAB(), self.stateA,
-                                self.stateB,
-                                initial_distrib=self.fluxBA_distribution_on_A(),
-                                max_n_lags=max_n_lags, lag_time=self.lag_time)
+    def fpt_distrib_AB(self, max_x=1000, dt=1):
+        return fpt_distribution(self.tmatrixAB(), self.stateA, self.stateB,
+                                self.fluxBA_distribution_on_A(),
+                                max_n_lags=max_x,
+                                lag_time=self._lag_time, dt=dt)
 
-    def fpt_distrib_BA(self, max_n_lags=1000):
-        return fpt_distribution(self.tmatrixBA(), self.stateB,
-                                self.stateA,
-                                initial_distrib=self.fluxAB_distribution_on_B(),
-                                max_n_lags=max_n_lags, lag_time=self.lag_time)
+    def fpt_distrib_BA(self, max_x=1000, dt=1):
+        return fpt_distribution(self.tmatrixBA(), self.stateB, self.stateA,
+                                self.fluxAB_distribution_on_B(),
+                                max_n_lags=max_x,
+                                lag_time=self._lag_time, dt=dt)
 
 
 class MarkovPlusColorModel(NonMarkovModel, DiscreteEnsemble):
@@ -240,10 +305,10 @@ class MarkovPlusColorModel(NonMarkovModel, DiscreteEnsemble):
         # Markovian transition matrix
         m_tmatrix = np.zeros((self.n_states, self.n_states))
 
-        start = self.lag_time
+        start = self._lag_time
         step = 1
 
-        lag = self.lag_time
+        lag = self._lag_time
         hlength = self.hist_length
 
         if not self.sliding_window:
