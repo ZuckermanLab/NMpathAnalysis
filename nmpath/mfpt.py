@@ -182,33 +182,13 @@ def direct_fpts(trajectories, stateA=None, stateB=None, discrete=True,
     return passage_timesAB, passage_timesBA
 
 
-def markov_mfpts(transition_matrix, stateA, stateB, lag_time=1):
+def markov_mfpts(markov_tmatrix, stateA, stateB, lag_time=1):
     '''Computes mean first passage times in both directions A->B and B->A
     from a markov model. The mfpts computed this way are directly comparable
     with the values obtained by a long back and forth simulation between the
     tar
     '''
-    transition_matrix = np.array(transition_matrix)
-
-    n_states = len(transition_matrix)
-
-    # pseudo non-markovian matrix (auxiliar_matrix)
-    auxiliar_matrix = np.zeros((2 * n_states, 2 * n_states))
-
-    for i in range(2 * n_states):
-        for j in range(2 * n_states):
-            auxiliar_matrix[i, j] = transition_matrix[int(i / 2), int(j / 2)]
-
-    for i in range(n_states):
-        for j in range(n_states):
-            if (i in stateB) or (j in stateB):
-                auxiliar_matrix[2 * i, 2 * j] = 0.0
-            if (i in stateA) or (j in stateA):
-                auxiliar_matrix[2 * i + 1, 2 * j + 1] = 0.0
-            if (not (j in stateA)) or (i in stateA):
-                auxiliar_matrix[2 * i + 1, 2 * j] = 0.0
-            if (not (j in stateB)) or (i in stateB):
-                auxiliar_matrix[2 * i, 2 * j + 1] = 0.0
+    auxiliar_matrix = aux.pseudo_nm_tmatrix(markov_tmatrix, stateA, stateB)
 
     # Is going to return a MARKOVIAN mfpt since the auxiliar
     # matrix was build from a pure markovian matrix
@@ -411,7 +391,7 @@ def max_commute_time(matrix_of_mfpts):
 
 
 def fpt_distribution(t_matrix, initial_state, final_state,
-                     initial_distrib, max_n_lags=500, lag_time=1):
+                     initial_distrib, max_n_lags=500, lag_time=1, dt=1.0):
 
     # copy everything since they are going to be modified
     tmatrix = np.copy(t_matrix)
@@ -448,7 +428,11 @@ def fpt_distribution(t_matrix, initial_state, final_state,
 
     density = np.sum(initial_distrib[:, None] * list_of_pdfs, axis=0) / sum_
 
-    return density / lag_time
+    dt2 = lag_time * dt
+
+    density_vs_t = np.array([[(i + 1) * dt2, dens / dt2]
+                             for i, dens in enumerate(density)])
+    return density_vs_t
 
 
 def _calc_fmatrix(Fmatrix, tmatrix, prevFmatrix, list_of_pdfs,
