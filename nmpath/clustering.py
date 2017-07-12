@@ -45,6 +45,25 @@ def kinetic_clustering_from_tmatrix(transition_matrix, n_clusters=2,
                                     verbose=False):
     """Hierarchical agglomeratice kinetic clustering from the commute matrix
     (MFPTs in both directions). On each step, the matrix is recalculated.
+
+    Parameters
+    ----------
+    transition_matrix:  ndarray, shape=(n,n)
+                        Row-stochastic transiton matrix (each row add to one)
+
+    n_clusters:         integer.
+                        A cut-off for the minimum number of clusters after the
+                        clustering.
+
+    t_cut:              float or integer,
+                        A cut-off for the min inter-cluster commute time
+
+    ini_clusters:       List of lists
+                        Initial clustering, force initial clusters.
+
+    Returns
+    -------
+    The tuple: clusters, t_min, t_max, new_tmatrix
     """
     # Check for consistency
     check_tmatrix(transition_matrix)  # it is a valid t_matrix?
