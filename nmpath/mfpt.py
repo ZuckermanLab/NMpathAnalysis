@@ -430,8 +430,8 @@ def fpt_distribution(t_matrix, initial_state, final_state,
 
     dt2 = lag_time * dt
 
-    density_vs_t = np.array([[(i + 1) * dt2, dens / dt2]
-                             for i, dens in enumerate(density)])
+    density_vs_t = np.array([[0, 0]] + [[(i + 1) * dt2, dens / dt2]
+                                        for i, dens in enumerate(density)])
     return density_vs_t
 
 
