@@ -6,14 +6,14 @@ Created on Jul 28, 2016
 import numpy as np
 from auxfunctions import map_to_integers, normalize_markov_matrix
 from auxfunctions import pops_from_nm_tmatrix, pops_from_tmatrix
-from auxfunctions import pseudo_nm_tmatrix
+from auxfunctions import pseudo_nm_tmatrix, weighted_choice
 from mfpt import direct_mfpts, non_markov_mfpts, fpt_distribution
 from mfpt import direct_fpts, markov_mfpts
 from ensembles import DiscreteEnsemble
 from msmtools.estimation import transition_matrix
 
 
-class NonMarkovModel:
+class NonMarkovModel(DiscreteEnsemble):
 
     '''Non Markovian Model
     ----------------------
@@ -55,7 +55,8 @@ class NonMarkovModel:
 
     def __init__(self, trajectories, stateA, stateB,
                  lag_time=1, clean_traj=False, sliding_window=True,
-                 reversible=True, markovian=False, **kwargs):
+                 reversible=True, markovian=False,
+                 **kwargs):
 
         self._lag_time = lag_time
         self.trajectories = trajectories
@@ -65,14 +66,14 @@ class NonMarkovModel:
         self.reversible = reversible
         self.markovian = markovian
 
+        self.n_variables = 1  # by construction
+        self.discrete = True  # by construction
+
         if (self._lag_time < 1) or (int(self._lag_time) != int(self._lag_time)):
             raise ValueError('The lag time should be an integer \
             greater than 1')
 
         if clean_traj:
-            print("WARNING: The trajectories are considered to be sequences "
-                  "of integers in the interval [0, N-1] where N is de number"
-                  "of microstates.")
             self.n_states = max([max(traj) for traj in self.trajectories]) + 1
         else:
             self.map_trajectories_to_integers()
@@ -143,9 +144,36 @@ class NonMarkovModel:
         markov_tmatrix = transition_matrix(markov_cmatrix, self.reversible)
 
         self.nm_tmatrix = nm_tmatrix
+
         self.nm_cmatrix = nm_cmatrix
         self.markov_cmatrix = markov_cmatrix
         self.markov_tmatrix = markov_tmatrix
+
+    @classmethod
+    def from_transition_matrix(cls, transition_matrix, stateA, stateB,
+                               sim_length=None, initial_state=0):
+        '''
+        Generates a discrete ensemble from the transition matrix
+        '''
+        if sim_length is None:
+            raise Exception('The simulation length must be given')
+
+        if not isinstance(transition_matrix, np.ndarray):
+            transition_matrix = np.array(transition_matrix)
+
+        n_states = len(transition_matrix)
+        assert(n_states == len(transition_matrix[0]))
+
+        current_state = initial_state
+        discrete_traj = [initial_state // 2]
+
+        for i in range(sim_length):
+            next_state = weighted_choice([k for k in range(n_states)],
+                                         transition_matrix[current_state, :])
+            discrete_traj.append(next_state // 2)
+            current_state = next_state
+
+        return cls([np.array(discrete_traj)], stateA, stateB, clean_traj=True)
 
     @property
     def lag_time(self):
@@ -285,8 +313,86 @@ class NonMarkovModel:
                                 max_n_lags=max_x,
                                 lag_time=self._lag_time, dt=dt)
 
+    def corr_function(self, times, label=None):
+        '''Computes the correlation function for a set of times.
 
-class MarkovPlusColorModel(NonMarkovModel, DiscreteEnsemble):
+        Parameters
+        ----------
+        stateA (list of integers):
+            List of microstates that belong to the macrostate A.
+
+        stateB (list of integers):
+            List of microstates that belong to the macrostate B.
+
+        times (list of integers):
+            List of dt values used to compute the correlation function.
+
+        Returns
+        -------
+        List of floats with the correlation values for the dt given in times
+        '''
+
+        pAA = []
+        pAB = []
+        pBA = []
+        pBB = []
+
+        t_matrix = self.markov_tmatrix if self.markovian else self.nm_tmatrix
+        tot_n_states = self.n_states if self.markovian else (2 * self.n_states)
+
+        for dt in times:
+            if dt % self.lag_time != 0:
+                raise ValueError('The times given should be '
+                                 'multiple of the lag time')
+            n = int(dt / self.lag_time)
+            pops_eq = self.populations()
+
+            t_matrixT_to_n = np.linalg.matrix_power(t_matrix.T, n)
+
+            popsA_to_propagate = np.zeros(tot_n_states)
+            popsB_to_propagate = np.zeros(tot_n_states)
+
+            if self.markovian:
+                for index in self.stateA:
+                    popsA_to_propagate[index] = pops_eq[index]
+
+                for index in self.stateB:
+                    popsB_to_propagate[index] = pops_eq[index]
+
+                final_dist_from_A = np.dot(t_matrixT_to_n, popsA_to_propagate)
+                final_dist_from_B = np.dot(t_matrixT_to_n, popsB_to_propagate)
+
+                pAA.append(sum([final_dist_from_A[i] for i in self.stateA]))
+                pBB.append(sum([final_dist_from_B[i] for i in self.stateB]))
+
+                pAB.append(sum([final_dist_from_B[i] for i in self.stateA]))
+                pBA.append(sum([final_dist_from_A[i] for i in self.stateB]))
+
+            else:
+
+                for index in self.stateA:
+                    popsA_to_propagate[2 * index] = pops_eq[index]
+
+                for index in self.stateB:
+                    popsB_to_propagate[2 * index + 1] = pops_eq[index]
+
+                final_dist_from_A = np.dot(t_matrixT_to_n, popsA_to_propagate)
+                final_dist_from_B = np.dot(t_matrixT_to_n, popsB_to_propagate)
+
+                pAA.append(sum([final_dist_from_A[2 * i]
+                                for i in self.stateA]))
+                pBB.append(sum([final_dist_from_B[2 * i + 1]
+                                for i in self.stateB]))
+
+                pAB.append(sum([final_dist_from_B[2 * i]
+                                for i in self.stateA]))
+                pBA.append(sum([final_dist_from_A[2 * i + 1]
+                                for i in self.stateB]))
+
+        return pAA, pAB, pBA, pBB
+
+
+class MarkovPlusColorModel(NonMarkovModel):
 
     def __init__(self, trajectories, stateA, stateB,
                  lag_time=1, clean_traj=False, sliding_window=True,
