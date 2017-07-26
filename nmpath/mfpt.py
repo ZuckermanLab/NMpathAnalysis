@@ -53,9 +53,10 @@ def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True,
     multiplied by the lag_time used (not the physical units).
     """
 
-    passage_timesAB, passage_timesBA = direct_fpts(trajectories, stateA,
-                                                   stateB, discrete,
-                                                   n_variables, lag_time)
+    passage_timesAB, passage_timesBA, tb_values = direct_fpts(trajectories,
+                                                              stateA,
+                                                              stateB, discrete,
+                                                              n_variables, lag_time)
     n_AB = len(passage_timesAB)
     n_BA = len(passage_timesBA)
 
@@ -146,12 +147,15 @@ def direct_fpts(trajectories, stateA=None, stateB=None, discrete=True,
 
     passage_timesAB = []
     passage_timesBA = []
-    fpt_counter = 0  # first passage time counter
+    tb_values = []
 
     for traj in trajectories:
         previous_color = "Unknown"
+        tb_counter = 0  # event duration counter
+        fpt_counter = 0  # first passage time counter
         for i in range(0, len(traj), lag_time):
             snapshot = traj[i]
+            tb_counter += 1
             # state and color determination
             if snapshot in stateA:
                 color = "A"
@@ -159,27 +163,33 @@ def direct_fpts(trajectories, stateA=None, stateB=None, discrete=True,
                 color = "B"
             else:
                 color = previous_color
+                tb_counter += 1
 
             # passage times
             if (color == "A") or (color == "B"):
                 fpt_counter += 1
 
             if previous_color == "A" and color == "B":
+                tb_values.append(tb_counter)
                 passage_timesAB.append(fpt_counter)
                 fpt_counter = 0
             elif previous_color == "B" and color == "A":
+                tb_values.append(tb_counter)
                 passage_timesBA.append(fpt_counter)
                 fpt_counter = 0
             elif previous_color == "Unknown" and (color == "A" or
                                                   color == "B"):
                 fpt_counter = 0
 
+            if (snapshot in stateA) or (snapshot in stateB):
+                tb_counter = 0
+
             previous_color = color
 
     passage_timesAB = np.array(passage_timesAB) * lag_time
     passage_timesBA = np.array(passage_timesBA) * lag_time
 
-    return passage_timesAB, passage_timesBA
+    return passage_timesAB, passage_timesBA, tb_values
 
 
 def markov_mfpts(markov_tmatrix, stateA, stateB, lag_time=1):
@@ -462,9 +472,9 @@ if __name__ == '__main__':
     print()
     print(min_commute_time(mfpts_matrix(T)))
 
-    #sequence = [1, 'a', 1, 'b', 2.2, 3]
+    # sequence = [1, 'a', 1, 'b', 2.2, 3]
 
-    #newseq, m_dict = aux.map_to_integers(sequence, {})
+    # newseq, m_dict = aux.map_to_integers(sequence, {})
 
     # print(newseq)
     # print(m_dict)
