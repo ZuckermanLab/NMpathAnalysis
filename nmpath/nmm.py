@@ -9,8 +9,9 @@ from auxfunctions import pops_from_nm_tmatrix, pops_from_tmatrix
 from auxfunctions import pseudo_nm_tmatrix, weighted_choice
 from mfpt import direct_mfpts, non_markov_mfpts, fpt_distribution
 from mfpt import direct_fpts, markov_mfpts
-from ensembles import DiscreteEnsemble
+from ensembles import DiscreteEnsemble, DiscretePathEnsemble
 from msmtools.estimation import transition_matrix
+from clustering import merge_macrostates_in_tmatrix
 
 
 class NonMarkovModel(DiscreteEnsemble):
@@ -76,14 +77,14 @@ class NonMarkovModel(DiscreteEnsemble):
         if clean_traj:
             self.n_states = max([max(traj) for traj in self.trajectories]) + 1
         else:
-            self.map_trajectories_to_integers()
+            self._map_trajectories_to_integers()
             # print("The trajectories are being mapped to a (new) "
             #       "list of integers. See/print the attribute seq_map "
             #       "for details")
 
         self.fit()
 
-    def map_trajectories_to_integers(self):
+    def _map_trajectories_to_integers(self):
         # Clean the sequences
         seq_map = {}
         new_trajs = []
@@ -150,8 +151,8 @@ class NonMarkovModel(DiscreteEnsemble):
         self.markov_tmatrix = markov_tmatrix
 
     @classmethod
-    def from_transition_matrix(cls, transition_matrix, stateA, stateB,
-                               sim_length=None, initial_state=0):
+    def from_nm_tmatrix(cls, transition_matrix, stateA, stateB,
+                        sim_length=None, initial_state=0):
         '''
         Generates a discrete ensemble from the transition matrix
         '''
@@ -390,6 +391,30 @@ class NonMarkovModel(DiscreteEnsemble):
                                 for i in self.stateB]))
 
         return pAA, pAB, pBA, pBB
+
+    def empirical_weighted_FS(self, tmatrix_for_classification=None):
+        if tmatrix_for_classification is None:
+            tmatrix_for_classification = self.markov_tmatrix
+
+        ens = DiscretePathEnsemble.from_ensemble(self, self.stateA,
+                                                 self.stateB)
+
+        return ens.weighted_fundamental_sequences(tmatrix_for_classification)
+
+    def weighted_FS(self, tmatrix_for_classification=None):
+        if tmatrix_for_classification is None:
+            tmatrix_for_classification = self.markov_tmatrix
+
+        if self.markovian:
+            tmatrix_to_generate_paths = self.markov_tmatrix
+        else:
+            tmatrix_to_generate_paths = self.tmatrixAB()
+
+        ens = DiscretePathEnsemble.from_transition_matrix(
+            tmatrix_to_generate_paths,
+            self.stateA, self.stateB, n_paths=1000)
+
+        return ens.weighted_fundamental_sequences(tmatrix_for_classification)
 
 
 class MarkovPlusColorModel(NonMarkovModel):
