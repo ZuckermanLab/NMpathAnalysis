@@ -10,7 +10,7 @@ import copy
 import operator
 
 
-def merge_microstates_in_tmatrix(transition_matrix, ms1, ms2):
+def merge_microstates_in_tmatrix(transition_matrix, ms1, ms2, keep_size=False):
     '''Merge two microstates (ms1 and ms2) in the transition matrix, i.e.,
     returns the transition matrix that we would obtain if the microstates where
     merged befored the estimation of the transition matrix. The transition
@@ -34,8 +34,13 @@ def merge_microstates_in_tmatrix(transition_matrix, ms1, ms2):
                                      p[ms2] * final_tmatrix[ms2, k]) / \
                 (p[ms1] + p[ms2])
 
-    final_tmatrix = np.delete(final_tmatrix, ms2, axis=1)
-    final_tmatrix = np.delete(final_tmatrix, ms2, axis=0)
+    if keep_size:
+        for i in range(size):
+            final_tmatrix[ms2, i] = 0.0
+            final_tmatrix[i, ms2] = 0.0
+    else:
+        final_tmatrix = np.delete(final_tmatrix, ms2, axis=1)
+        final_tmatrix = np.delete(final_tmatrix, ms2, axis=0)
 
     return final_tmatrix
 
