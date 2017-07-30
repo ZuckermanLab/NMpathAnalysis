@@ -56,7 +56,8 @@ def direct_mfpts(trajectories, stateA=None, stateB=None, discrete=True,
     passage_timesAB, passage_timesBA, tb_values = direct_fpts(trajectories,
                                                               stateA,
                                                               stateB, discrete,
-                                                              n_variables, lag_time)
+                                                              n_variables,
+                                                              lag_time)
     n_AB = len(passage_timesAB)
     n_BA = len(passage_timesBA)
 
