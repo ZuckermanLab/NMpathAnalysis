@@ -119,7 +119,7 @@ class Ensemble:
     def __getitem__(self, arg):
         return self.trajectories[arg]
 
-    def mfpts(self, stateA, stateB):
+    def empirical_mfpts(self, stateA, stateB):
         return direct_mfpts(self.trajectories, stateA,
                             stateB, discrete=self.discrete,
                             n_variables=self.n_variables,
@@ -186,11 +186,12 @@ class Ensemble:
 
 class PathEnsemble(Ensemble):
 
-    def __init__(self, trajectory=None, verbose=False, dtype='float32',
-                 discrete=False, stateA=None, stateB=None,
-                 lag_time=1, **kwargs):
-        super().__init__(trajectory, verbose, dtype, discrete,
+    def __init__(self, trajectories=None, verbose=False, dtype='float32',
+                 discrete=False, lag_time=1, stateA=None, stateB=None,
+                 **kwargs):
+        super().__init__(trajectories, verbose, dtype, discrete,
                          lag_time, **kwargs)
+
         if (stateA is None) or (stateB is None):
             raise Exception(
                 'The initial state (stateA) and final state (stateB) \
@@ -262,9 +263,9 @@ class DiscreteEnsemble(Ensemble):
     '''
 
     def __init__(self, trajectories=None, verbose=False,
-                 dtype='int32', discrete=True, **kwargs):
+                 dtype='int32', discrete=True, lag_time=1, **kwargs):
         super().__init__(trajectories, verbose, dtype,
-                         discrete, **kwargs)
+                         discrete, lag_time, **kwargs)
         if (self.n_variables != 1) and (self.n_variables != 0):
             raise Exception(
                 'A discrete trajectory must have a one-dimensional \
@@ -358,10 +359,11 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
     """
 
     def __init__(self, trajectories=None, verbose=False, dtype='int32',
-                 discrete=True, stateA=None, stateB=None, **kwargs):
+                 discrete=True, lag_time=1, stateA=None, stateB=None,
+                 **kwargs):
 
-        super().__init__(trajectories, verbose, dtype, discrete, stateA,
-                         stateB, **kwargs)
+        super().__init__(trajectories, verbose, dtype, discrete,
+                         lag_time, stateA, stateB, **kwargs)
 
     @classmethod
     def from_transition_matrix(cls, transition_matrix, stateA=None,
@@ -388,7 +390,7 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
         '''
 
         if ini_pops is None:
-            ini_pops = [1 / float(len(ini_pops)) for i in range(len(ini_pops))]
+            ini_pops = [1 / float(len(stateA)) for i in range(len(stateA))]
         elif ini_pops == 'ss':
             raise NotImplementedError('Sorry: not yet implemented')
 
@@ -419,44 +421,50 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
 
     @classmethod
     def from_ensemble(cls, ensemble, stateA, stateB, map_function=None):
-        if map_function is None:
-            raise Exception(
-                'The mapping function has to be specified, if you are sure'
-                'you do not want any mapping use: '
-                'map_function = identity_mapper')
-        trajs = PathEnsemble.from_ensemble(
+        ens = PathEnsemble.from_ensemble(
             ensemble, stateA, stateB, map_function,
-            discrete=True, dtype='int32').trajectories
-        return cls(trajs, stateA=stateA, stateB=stateB)
+            discrete=True, dtype='int32')
+        return cls(ens.trajectories, stateA=stateA, stateB=stateB)
 
-    def fundamental_sequences(self, transition_matrix=None, symmetric=True):
+    def nm_mfpt(self, ini_probs=None, n_states=None):
+        '''Computes the mean-first passage time from the transition matrix
+        '''
+        t_matrix = self._mle_transition_matrix(n_states)
+        ini_state = list(self.stateA)
+        final_state = sorted(list(self.stateB))
+
+        return directional_mfpt(t_matrix, ini_state, final_state, ini_probs)
+
+    def _fundamental_sequences(self, transition_matrix, symmetric=True,
+                               merge_macrostates=True):
         '''
         Divide/classify the path ensemble into fundamental sequences
         '''
-
-        if transition_matrix is None:
-            try:
-                transition_matrix = self.transition_matrix
-            except:
-                raise Exception('Transition matrix is not yet defined')
 
         fundamental_seqs = []
 
         for path in self.trajectories:
             if symmetric:
-                cmatrix = self.connectivity_matrix(path, transition_matrix
-                                                   * transition_matrix.T)
+                cmatrix = self._connectivity_matrix(path, transition_matrix
+                                                    * transition_matrix.T)
             else:
-                cmatrix = self.connectivity_matrix(path, transition_matrix)
+                cmatrix = self._connectivity_matrix(path, transition_matrix)
 
-            path_graph = self.graph_from_matrix(cmatrix)
-            shortest_path = nx.dijkstra_path(path_graph, path[0], path[-1], 'distance')
+            path_graph = self._graph_from_matrix(cmatrix)
+            shortest_path = nx.dijkstra_path(path_graph, path[0], path[-1],
+                                             'distance')
+
+            if merge_macrostates:
+                shortest_path[0] = self.stateA[0]
+                shortest_path[-1] = self.stateB[0]
             fundamental_seqs.append(shortest_path)
 
         return fundamental_seqs
 
-    def weighted_fundamental_sequences(self, transition_matrix, symmetric=True):
-        fs_list = self.fundamental_sequences(transition_matrix, symmetric)
+    def weighted_fundamental_sequences(self, transition_matrix=None,
+                                       symmetric=True, merge_macrostates=True):
+        fs_list = self._fundamental_sequences(transition_matrix, symmetric,
+                                              merge_macrostates)
         element_count = {}
         count = 0
         for element in fs_list:
@@ -479,7 +487,7 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
         return reversed_sorted_new_fs_list, reversed_sorted_weights
 
     @staticmethod
-    def graph_from_matrix(matrix):
+    def _graph_from_matrix(matrix):
         'Builds a directed Graph from a matrix like a transtion matrix'
 
         size = len(matrix)
@@ -498,7 +506,7 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
         return G
 
     @staticmethod
-    def connectivity_matrix(path, matrix):
+    def _connectivity_matrix(path, matrix):
         '''From a given path and a matrix construct a new matrix we call
         connectivity matrix whose elements ij are zero if the transition i->j
         is not observed in the path or (i=j), while keep the rest of the
@@ -525,14 +533,10 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
 
         return c_matrix
 
-    def nm_mfpt(self, ini_probs=None, n_states=None):
-        '''Computes the mean-first passage time from the transition matrix
-        '''
-        t_matrix = self._mle_transition_matrix(n_states)
-        ini_state = list(self.stateA)
-        final_state = sorted(list(self.stateB))
-
-        return directional_mfpt(t_matrix, ini_state, final_state, ini_probs)
+    def merge_macrostates(self):
+        for traj in self.trajectories:
+            traj[0] = self.stateA[0]
+            traj[-1] = self.stateB[0]
 
 
 def main():
@@ -562,7 +566,7 @@ def main():
     stateB = [90, 100]
     ensemble0 = Ensemble([test_trajectory0], verbose=True)
     print('\nmfpts from the continuous simulation: given t0')
-    print(ensemble0.mfpts(stateA, stateB))
+    print(ensemble0.empirical_mfpts(stateA, stateB))
     print('\nNum of trajs: ', len(ensemble0))
 
     ensemble0.add_trajectory(test_trajectory1)
@@ -573,13 +577,13 @@ def main():
     ensemble_tot = ensemble0 + ensemble2
     print('\nNum of trajs: ', len(ensemble_tot))
     print(np.array(ensemble_tot.trajectories).shape)
-    print(ensemble_tot.mfpts(stateA, stateB))
+    print(ensemble_tot.empirical_mfpts(stateA, stateB))
     K = ensemble_tot._mle_transition_matrix(n_states=10,
                                             map_function=simple_mapping2)
 
     pathE = PathEnsemble.from_ensemble(ensemble_tot, stateA, stateB)
     print(pathE)
-    print(pathE.mfpts(stateA, stateB))
+    print(pathE.empirical_mfpts(stateA, stateB))
 
     stateA = [0]
     stateB = [9]
@@ -589,7 +593,7 @@ def main():
 
     dpathEnsemble = DiscretePathEnsemble.from_ensemble(
         ensemble_tot, stateA, stateB, map_function=simple_mapping2)
-    print(dpathEnsemble.mfpts(stateA, stateB))
+    print(dpathEnsemble.empirical_mfpts(stateA, stateB))
 
 
 if __name__ == '__main__':
