@@ -435,8 +435,7 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
 
         return directional_mfpt(t_matrix, ini_state, final_state, ini_probs)
 
-    def _fundamental_sequences(self, transition_matrix, symmetric=True,
-                               merge_macrostates=True):
+    def _fundamental_sequences(self, transition_matrix, symmetric=True):
         '''
         Divide/classify the path ensemble into fundamental sequences
         '''
@@ -454,22 +453,18 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
             shortest_path = nx.dijkstra_path(path_graph, path[0], path[-1],
                                              'distance')
 
-            if merge_macrostates:
-                shortest_path[0] = self.stateA[0]
-                shortest_path[-1] = self.stateB[0]
             fundamental_seqs.append(shortest_path)
 
         return fundamental_seqs
 
     def weighted_fundamental_sequences(self, transition_matrix=None,
-                                       symmetric=True, merge_macrostates=True):
-        fs_list = self._fundamental_sequences(transition_matrix, symmetric,
-                                              merge_macrostates)
+                                       symmetric=True):
+        fs_list = self._fundamental_sequences(transition_matrix, symmetric)
         element_count = {}
-        count = 0
+        tot_count = 0
         for element in fs_list:
             pseudo_index = tuple(element)
-            count += 1
+            tot_count += 1
             if pseudo_index not in element_count:
                 element_count[pseudo_index] = 1
             else:
@@ -479,12 +474,12 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
         new_fs_list = []
         for key, value in element_count.items():
             new_fs_list.append(key)
-            weights.append(value / float(count))
+            weights.append(value / float(tot_count))
 
         reversed_sorted_weights, reversed_sorted_new_fs_list = \
             reverse_sort_lists(weights, new_fs_list)
 
-        return reversed_sorted_new_fs_list, reversed_sorted_weights
+        return reversed_sorted_new_fs_list, reversed_sorted_weights, tot_count
 
     @staticmethod
     def _graph_from_matrix(matrix):
@@ -532,11 +527,6 @@ class DiscretePathEnsemble(PathEnsemble, DiscreteEnsemble):
             c_matrix[path[i], path[i + 1]] = matrix[path[i], path[i + 1]]
 
         return c_matrix
-
-    def merge_macrostates(self):
-        for traj in self.trajectories:
-            traj[0] = self.stateA[0]
-            traj[-1] = self.stateB[0]
 
 
 def main():
