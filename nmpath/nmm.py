@@ -11,7 +11,6 @@ from mfpt import direct_mfpts, non_markov_mfpts, fpt_distribution
 from mfpt import direct_fpts, markov_mfpts
 from ensembles import DiscreteEnsemble, DiscretePathEnsemble
 from msmtools.estimation import transition_matrix
-from clustering import merge_macrostates_in_tmatrix
 
 
 class NonMarkovModel(DiscreteEnsemble):
@@ -57,7 +56,17 @@ class NonMarkovModel(DiscreteEnsemble):
     def __init__(self, trajectories, stateA, stateB,
                  lag_time=1, clean_traj=False, sliding_window=True,
                  reversible=True, markovian=False,
-                 **kwargs):
+                 coarse_macrostates=False, **kwargs):
+
+        if coarse_macrostates:
+            for traj in trajectories:
+                for i, _ in enumerate(traj):
+                    if traj[i] in stateA:
+                        traj[i] = stateA[0]
+                    elif traj[i] in stateB:
+                        traj[i] = stateB[0]
+            stateA = [stateA[0]]
+            stateB = [stateB[0]]
 
         self._lag_time = lag_time
         self.trajectories = trajectories
@@ -392,16 +401,19 @@ class NonMarkovModel(DiscreteEnsemble):
 
         return pAA, pAB, pBA, pBB
 
-    def empirical_weighted_FS(self, tmatrix_for_classification=None):
+    def empirical_weighted_FS(self, tmatrix_for_classification=None,
+                              symmetric=True):
         if tmatrix_for_classification is None:
             tmatrix_for_classification = self.markov_tmatrix
 
         ens = DiscretePathEnsemble.from_ensemble(self, self.stateA,
                                                  self.stateB)
 
-        return ens.weighted_fundamental_sequences(tmatrix_for_classification)
+        return ens.weighted_fundamental_sequences(tmatrix_for_classification,
+                                                  symmetric)
 
-    def weighted_FS(self, tmatrix_for_classification=None):
+    def weighted_FS(self, tmatrix_for_classification=None, n_paths=1000,
+                    symmetric=True):
         if tmatrix_for_classification is None:
             tmatrix_for_classification = self.markov_tmatrix
 
@@ -412,9 +424,10 @@ class NonMarkovModel(DiscreteEnsemble):
 
         ens = DiscretePathEnsemble.from_transition_matrix(
             tmatrix_to_generate_paths,
-            self.stateA, self.stateB, n_paths=1000)
+            self.stateA, self.stateB, n_paths)
 
-        return ens.weighted_fundamental_sequences(tmatrix_for_classification)
+        return ens.weighted_fundamental_sequences(tmatrix_for_classification,
+                                                  symmetric)
 
 
 class MarkovPlusColorModel(NonMarkovModel):
@@ -434,7 +447,7 @@ class MarkovPlusColorModel(NonMarkovModel):
         nm_tmatrix = np.zeros((2 * self.n_states, 2 * self.n_states))
 
         # Markovian transition matrix
-        m_tmatrix = np.zeros((self.n_states, self.n_states))
+        markov_tmatrix = np.zeros((self.n_states, self.n_states))
 
         start = self._lag_time
         step = 1
@@ -448,11 +461,11 @@ class MarkovPlusColorModel(NonMarkovModel):
         # Markov first
         for traj in self.trajectories:
             for i in range(start, len(traj), step):
-                m_tmatrix[traj[i - lag], traj[i]] += 1.0  # counting
-        m_tmatrix = m_tmatrix + m_tmatrix.T
-        m_tmatrix = normalize_markov_matrix(m_tmatrix)
+                markov_tmatrix[traj[i - lag], traj[i]] += 1.0  # counting
+        markov_tmatrix = markov_tmatrix + markov_tmatrix.T
+        markov_tmatrix = normalize_markov_matrix(markov_tmatrix)
 
-        p_nm_tmatrix = pseudo_nm_tmatrix(m_tmatrix, self.stateA, self.stateB)
+        p_nm_tmatrix = pseudo_nm_tmatrix(markov_tmatrix, self.stateA, self.stateB)
         pops = pops_from_tmatrix(p_nm_tmatrix)
 
         # Pseudo-Markov Flux matrix
@@ -525,6 +538,7 @@ class MarkovPlusColorModel(NonMarkovModel):
 
         nm_tmatrix = normalize_markov_matrix(nm_tmatrix)
         self.nm_tmatrix = nm_tmatrix
+        self.markov_tmatrix = markov_tmatrix
 
     def populations(self):
         return NotImplementedError("You should use a regular Markov model or "
