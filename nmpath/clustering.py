@@ -122,7 +122,8 @@ def kinetic_clustering_from_tmatrix(transition_matrix, n_clusters=2,
 
 def biggest_clusters_indexes(clusters, n_pick=2):
     '''Pick the n_pick biggest clusters in a list of lists where the inner
-    lists are group of indexes (clusters)'''
+    lists are group of indexes (clusters)
+    '''
 
     n_clusters = len(clusters)
 
