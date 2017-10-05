@@ -120,6 +120,74 @@ def kinetic_clustering_from_tmatrix(transition_matrix, n_clusters=2,
     return clusters, t_min, t_max, new_tmatrix
 
 
+def kinetic_clustering2_from_tmatrix(transition_matrix, n_clusters=2,
+                                     t_cut=float('inf'), ini_clusters=None,
+                                     verbose=False):
+    """Hierarchical agglomeratice kinetic clustering from the commute matrix
+    (MFPTs in both directions). The microstates are conserved all the time.
+    Clusters are formed when al the inter-microstate commute times are bellow
+    t_cut
+
+    Parameters
+    ----------
+    transition_matrix:  ndarray, shape=(n,n)
+                        Row-stochastic transiton matrix (each row add to one)
+
+    n_clusters:         integer.
+                        A cut-off for the minimum number of clusters after the
+                        clustering.
+
+    t_cut:              float or integer,
+                        A cut-off for the inter-cluster commute time
+
+    ini_clusters:       List of lists
+                        Initial clustering, force initial clusters.
+
+    Returns
+    -------
+    The tuple: clusters, t_min, t_max, new_tmatrix
+    """
+    # Check for consistency
+    check_tmatrix(transition_matrix)  # it is a valid t_matrix?
+    if n_clusters < 2:
+        raise ValueError("The final number of clusters should be "
+                         "greater than 2")
+
+    n_states = len(transition_matrix)
+
+    if ini_clusters is None:
+        clusters = [[i] for i in range(n_states)]
+    else:
+        clusters = copy.copy(ini_clusters)
+
+    mfpt_M = mfpts_matrix(transition_matrix)
+    # t_min, i_min, j_min = min_commute_time(mfpt_M)
+    # t_max, i_max, j_max = max_commute_time(mfpt_M)
+
+    if verbose:
+        print("Number of clusters: ", end=" ")
+
+    merged = True
+    while merged and (len(clusters) > n_clusters):
+        merged = False
+        lenc = len(clusters)
+        for i range(lenc):
+            for j in range(i+1, lenc):
+                t_ij = max_inter_cluster_commute_time(mfpt_M, clusters, i, j)
+                if t_ij < t_cut:
+                    clusters[i] += clusters[j]
+                    del clusters[j]
+                    clusters_merged = True
+
+    return clusters
+
+
+def max_inter_cluster_commute_time(mfpt_M, clusters, i, j):
+    '''In progress...
+    '''
+    return 0
+
+
 def biggest_clusters_indexes(clusters, n_pick=2):
     '''Pick the n_pick biggest clusters in a list of lists where the inner
     lists are group of indexes (clusters)
