@@ -185,7 +185,17 @@ def kinetic_clustering2_from_tmatrix(transition_matrix, n_clusters=2,
 def max_inter_cluster_commute_time(mfpt_M, clusters, i, j):
     '''In progress...
     '''
-    return 0
+    t_max = mfpt_M[clusters[i][0], clusters[j][0]] + \
+        mfpt_M[clusters[j][0], clusters[i][0]]
+
+    for element_i in clusters[i]:
+        for element_j in clusters[j]:
+            round_trip = mfpt_M[element_i, element_j] + \
+                    mfpt_M[element_j, element_i]
+            if round_trip > t_max:
+                round_trip = t_max
+
+    return round_trip
 
 
 def biggest_clusters_indexes(clusters, n_pick=2):
