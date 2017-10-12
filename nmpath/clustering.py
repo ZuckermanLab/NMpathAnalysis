@@ -171,22 +171,24 @@ def kinetic_clustering2_from_tmatrix(transition_matrix, n_clusters=2,
     while merged and (len(clusters) > n_clusters):
         merged = False
         lenc = len(clusters)
-        for i range(lenc):
+        for i in range(lenc):
             for j in range(i+1, lenc):
                 t_ij = max_inter_cluster_commute_time(mfpt_M, clusters, i, j)
                 if t_ij < t_cut:
                     clusters[i] += clusters[j]
                     del clusters[j]
-                    clusters_merged = True
-
+                    merged = True
+                    break
+            if merged:
+                break
     return clusters
 
 
 def max_inter_cluster_commute_time(mfpt_M, clusters, i, j):
-    '''In progress...
+    '''Computes the all the inter-cluster commute times and returns
+    the maximum value found.
     '''
-    t_max = mfpt_M[clusters[i][0], clusters[j][0]] + \
-        mfpt_M[clusters[j][0], clusters[i][0]]
+    t_max = 0
 
     for element_i in clusters[i]:
         for element_j in clusters[j]:
