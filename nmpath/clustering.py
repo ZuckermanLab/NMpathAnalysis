@@ -171,17 +171,35 @@ def kinetic_clustering2_from_tmatrix(transition_matrix, n_clusters=2,
     while merged and (len(clusters) > n_clusters):
         merged = False
         lenc = len(clusters)
+
+        # find min(t_ij| i in X, j in Y, t_ij < t_cut)
+        t_min = float('inf')
+        t_max = 0
+        t_min_pair = None
         for i in range(lenc):
             for j in range(i+1, lenc):
                 t_ij = max_inter_cluster_commute_time(mfpt_M, clusters, i, j)
-                if t_ij < t_cut:
-                    clusters[i] += clusters[j]
-                    del clusters[j]
-                    merged = True
-                    break
-            if merged:
-                break
-    return clusters
+                if t_ij > t_max:
+                    t_max = t_ij
+                if t_ij < t_cut and t_ij < t_min:
+                    t_min = t_ij
+                    t_min_pair = [i, j]
+
+        if t_min_pair is not None:
+            clusters[t_min_pair[0]] += clusters[t_min_pair[1]]
+            del clusters[t_min_pair[1]]
+            merged = True
+
+    # recomputing t_min after clustering
+    t_min = float('inf')
+    lenc = len(clusters)
+    for i in range(lenc):
+        for j in range(i+1, lenc):
+            t_ij = max_inter_cluster_commute_time(mfpt_M, clusters, i, j)
+            if t_ij < t_min:
+                t_min = t_ij
+
+    return clusters, t_min, t_max
 
 
 def max_inter_cluster_commute_time(mfpt_M, clusters, i, j):
@@ -195,9 +213,9 @@ def max_inter_cluster_commute_time(mfpt_M, clusters, i, j):
             round_trip = mfpt_M[element_i, element_j] + \
                     mfpt_M[element_j, element_i]
             if round_trip > t_max:
-                round_trip = t_max
+                t_max = round_trip
 
-    return round_trip
+    return t_max
 
 
 def biggest_clusters_indexes(clusters, n_pick=2):
