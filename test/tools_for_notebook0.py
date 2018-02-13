@@ -18,10 +18,10 @@ def energy(x,y):
     else:
         ener = 1.5*(1 - sin(x) * sin(y)) + 0.0009*(((x - (9 * sin(y/3) + y))**2) * (y - (9*sin(x/3) + x))**2)
         return ener
-    
+
 
 def plot_traj(list_of_trajs, discrete=[False], line_width=0.5, std = 0.3, color = None, alpha = 0.5 ,title = '', figsize=(8,6.5)):
-    
+
 
     length = 6*pi
     #----------
@@ -45,7 +45,7 @@ def plot_traj(list_of_trajs, discrete=[False], line_width=0.5, std = 0.3, color 
     plt.fill_between(xlist, 5*pi, 6*pi, where = xlist >= 5*pi, facecolor='green', alpha = 0.4)
     plt.title(title, fontsize = 17)
 
-    my_colors = ['red', 'blue','green','black','brown'] + [np.random.rand(3,1) for i in range(len(list_of_trajs))]
+    my_colors = ['red', 'blue','green','black','brown'] + [np.random.rand(3,) for i in range(len(list_of_trajs))]
 
 
 
@@ -54,18 +54,18 @@ def plot_traj(list_of_trajs, discrete=[False], line_width=0.5, std = 0.3, color 
             lw = line_width[i]
         else:
             lw = line_width
-            
+
         if not discrete[i]:
             if color is None:
-                plt.plot(element[0],element[1], color=np.random.rand(3,1), linewidth=lw)
+                plt.plot(element[0],element[1], color=my_colors[i], linewidth=lw)
             else: plt.plot(element[0],element[1], color=color, linewidth=lw)
-            
+
         else:
             xi = np.array(element[0])
-            x_values = [((length/N)*(int(index/N) + 0.5) + np.random.normal(0, std)) for index in xi]
-            y_values = [((length/N)*(index%N + 0.5) + np.random.normal(0, std)) for index in xi]
+            x_values = [(int(index/N) + 0.5)*length/N + np.random.normal(0, std) for index in xi ]
+            y_values = [((length/N)*(index % N + 0.5) + np.random.normal(0, std)) for index in xi ]
             if color is None:
-                plt.plot(x_values, y_values, color=np.random.rand(3,1), linewidth=lw)
+                plt.plot(x_values, y_values, color=my_colors[i], linewidth=lw)
             else: plt.plot(x_values, y_values, color=color, linewidth=lw)
 
 
@@ -82,11 +82,11 @@ def plot_traj(list_of_trajs, discrete=[False], line_width=0.5, std = 0.3, color 
     plt.colorbar()
 
     plt.show()
-    
+
 def mc_simulation2D(numsteps):
     x = 1; y = 1
     mc_traj = []
-    
+
     for i in range(numsteps):
         dx = np.random.uniform(-pi,pi)
         dy = np.random.uniform(-pi,pi)
