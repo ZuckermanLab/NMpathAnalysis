@@ -151,7 +151,8 @@ class NonMarkovModel(DiscreteEnsemble):
                     markov_cmatrix[traj[i - lag], traj[i]] += 1.0
 
         nm_tmatrix = normalize_markov_matrix(nm_cmatrix)
-        markov_tmatrix = transition_matrix(markov_cmatrix, self.reversible)
+        markov_tmatrix = normalize_markov_matrix(markov_cmatrix, reversible=True)
+        #markov_tmatrix = transition_matrix(markov_cmatrix, self.reversible)
 
         self.nm_tmatrix = nm_tmatrix
 
