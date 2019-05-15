@@ -123,7 +123,7 @@ class Ensemble:
         return direct_mfpts(self.trajectories, stateA,
                             stateB, discrete=self.discrete,
                             n_variables=self.n_variables,
-                            lag_time=self.lag_time)
+                            lag_time=self._lag_time)
 
     def _count_matrix(self, n_states=None, map_function=None):
         if (map_function is None) or (n_states is None):

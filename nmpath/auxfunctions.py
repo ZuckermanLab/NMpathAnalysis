@@ -84,12 +84,14 @@ def num_of_nonzero_elements(my_vector):
     return counter
 
 
-def normalize_markov_matrix(transition_matrix):
+def normalize_markov_matrix(transition_matrix, reversible=False):
     '''Transform a matrix of positive elements to a markov-like
     matrix by divding each row by the sum of the elements of the
     row.
     '''
     t_matrix = np.array(transition_matrix, dtype=np.float64)
+    if reversible:
+        t_matrix = t_matrix.T + t_matrix
 
     n_states = len(t_matrix)
     assert(n_states == len(t_matrix[0]))
@@ -319,6 +321,46 @@ def pseudo_nm_tmatrix(markovian_tmatrix, stateA, stateB):
 
     check_tmatrix(p_nm_tmatrix)  # just in case
     return p_nm_tmatrix
+
+def confindence_interval_cdf(populations, totCounts, conf_interval=0.95, n_samples=100000):
+    counts = np.round(np.array(populations)*totCounts)
+    partialCounts = sum(counts)
+    myarray = list(counts)+[totCounts-partialCounts]
+    s = np.random.dirichlet(myarray, n_samples)
+
+    s_cdf = []
+
+    for line in s:
+        s_cdf.append(cdf(line))
+    s_cdf = np.array(s_cdf)
+
+    s = np.transpose(s)
+    s_cdf = np.transpose(s_cdf)
+
+    minval = []
+    maxval = []
+    minvalcdf = []
+    maxvalcdf = []
+
+    for line in s:
+        sorted_line = np.sort(line)
+        minval.append(sorted_line[int(     (1-conf_interval)/2  * len(sorted_line))])
+        maxval.append(sorted_line[int(  (1-(1-conf_interval)/2) * len(sorted_line))])
+
+    for line in s_cdf:
+        sorted_line = np.sort(line)
+        minvalcdf.append(sorted_line[int(     (1-conf_interval)/2  * len(sorted_line))])
+        maxvalcdf.append(sorted_line[int(  (1-(1-conf_interval)/2) * len(sorted_line))])
+
+    return minvalcdf[:-1], maxvalcdf[:-1]
+
+def cdf(pmf):
+    mycdf = []
+    tot = 0
+    for element in pmf:
+        tot += element
+        mycdf.append(tot)
+    return np.array(mycdf)
 
 
 if __name__ == '__main__':
