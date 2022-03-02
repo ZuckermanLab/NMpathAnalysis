@@ -278,10 +278,16 @@ def map_to_integers(sequence, mapping_dict=None):
     '''
     if mapping_dict is None:
         mapping_dict = {}
+        counter = 0
+    else: 
+        counters = list(mapping_dict.values())
+        if len(counters) == 0: 
+            counter = 0
+        else:
+            counter = np.max(counters)+1
 
     new_sequence = np.zeros(len(sequence), dtype='int64')
 
-    counter = 0
 
     for i, element in enumerate(sequence):
         if element not in mapping_dict.keys():
